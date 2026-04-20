@@ -91,7 +91,7 @@ defineEmits<{
 }
 
 .holding-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -103,7 +103,7 @@ defineEmits<{
 }
 
 .holding-pnl {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
@@ -118,7 +118,7 @@ defineEmits<{
 .holding-info-row {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .info-label {

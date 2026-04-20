@@ -132,12 +132,12 @@ async function handleDeleteLiability(liability: any) {
 }
 
 .section-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
 }
 
 .section-total {
-  font-size: 13px;
+  font-size: 14px;
   color: #666;
   margin-bottom: 8px;
   padding-left: 4px;

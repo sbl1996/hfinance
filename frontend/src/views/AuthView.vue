@@ -76,7 +76,7 @@ async function handleLogin() {
 .auth-subtitle {
   text-align: center;
   color: #999;
-  font-size: 14px;
+  font-size: 15px;
   margin-bottom: 32px;
 }
 

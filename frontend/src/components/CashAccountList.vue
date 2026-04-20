@@ -44,6 +44,6 @@ defineEmits<{
   text-align: center;
   color: #999;
   padding: 20px 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>

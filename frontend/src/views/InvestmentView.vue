@@ -125,13 +125,13 @@ async function handleRefreshSingle(holding: any) {
 }
 
 .summary-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #999;
   margin-bottom: 4px;
 }
 
 .summary-value {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
 }
 
@@ -151,6 +151,6 @@ async function handleRefreshSingle(holding: any) {
   text-align: center;
   color: #999;
   padding: 40px 0;
-  font-size: 14px;
+  font-size: 15px;
 }
 </style>

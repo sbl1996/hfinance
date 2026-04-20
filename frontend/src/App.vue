@@ -27,12 +27,18 @@ const isLoginPage = computed(() => route.path === '/login')
   --van-primary-color: #1989fa;
   --pnl-positive: #ee0a24;
   --pnl-negative: #07c160;
+  --max-content-width: 480px;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+html {
+  /* 移动端字体基准：默认 16px，手机上 15px 会让 1rem 对应的 px 更合适 */
+  font-size: 16px;
 }
 
 html, body, #app {
@@ -48,6 +54,9 @@ html, body, #app {
   height: 100%;
   display: flex;
   flex-direction: column;
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  position: relative;
 }
 
 .app-content {
@@ -57,6 +66,13 @@ html, body, #app {
   padding-bottom: 8px;
 }
 
+/* 限制 vant tabbar 在最大宽度内居中 */
+.van-tabbar {
+  max-width: var(--max-content-width);
+  left: 50% !important;
+  transform: translateX(-50%);
+}
+
 /* 盈亏颜色 */
 .pnl-positive {
   color: var(--pnl-positive) !important;
@@ -64,5 +80,44 @@ html, body, #app {
 
 .pnl-negative {
   color: var(--pnl-negative) !important;
+}
+
+/* 移动端字体放大适配 */
+@media screen and (max-width: 480px) {
+  .overview-item .overview-label,
+  .summary-label,
+  .info-label,
+  .legend-name,
+  .section-total,
+  .ring-label {
+    font-size: 13px !important;
+  }
+
+  .overview-sub-value,
+  .summary-value,
+  .holding-pnl,
+  .holding-name,
+  .section-title,
+  .card-title,
+  .legend-value,
+  .ring-total {
+    font-size: 17px !important;
+  }
+
+  .overview-main .overview-value {
+    font-size: 32px !important;
+  }
+
+  .holding-info-row {
+    font-size: 14px !important;
+  }
+
+  .legend-item {
+    font-size: 14px !important;
+  }
+
+  .empty-tip {
+    font-size: 15px !important;
+  }
 }
 </style>

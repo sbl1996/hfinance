@@ -103,10 +103,11 @@ const ringStyle = computed(() => {
 .ring-total {
   font-size: 14px;
   font-weight: 700;
+  word-break: break-all;
 }
 
 .ring-label {
-  font-size: 10px;
+  font-size: 11px;
   color: #999;
 }
 
@@ -118,14 +119,14 @@ const ringStyle = computed(() => {
   display: flex;
   align-items: center;
   margin-bottom: 8px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .legend-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  margin-right: 6px;
+  margin-right: 8px;
   flex-shrink: 0;
 }
 

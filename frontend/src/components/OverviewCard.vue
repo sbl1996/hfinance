@@ -64,7 +64,7 @@ defineProps<{
 }
 
 .overview-main .overview-label {
-  font-size: 13px;
+  font-size: 14px;
   opacity: 0.8;
 }
 
@@ -72,6 +72,7 @@ defineProps<{
   font-size: 28px;
   font-weight: 700;
   margin-top: 4px;
+  word-break: break-all;
 }
 
 .overview-row {
@@ -84,12 +85,12 @@ defineProps<{
 }
 
 .overview-item .overview-label {
-  font-size: 12px;
+  font-size: 13px;
   opacity: 0.7;
 }
 
 .overview-sub-value {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   margin-top: 2px;
 }
