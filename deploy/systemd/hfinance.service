@@ -1,0 +1,16 @@
+[Unit]
+Description=HFinance - 个人资产管理记账系统
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/hfinance/backend
+ExecStart=/opt/hfinance/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+Environment=HFINANCE_ACCESS_PASSWORD=hfinance
+Environment=HFINANCE_JWT_SECRET_KEY=change-me-in-production
+
+[Install]
+WantedBy=multi-user.target

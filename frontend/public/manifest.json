@@ -1,0 +1,17 @@
+{
+  "name": "HFinance - 个人资产管理",
+  "short_name": "HFinance",
+  "description": "个人资产管理记账系统",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8fa",
+  "theme_color": "#1989fa",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
