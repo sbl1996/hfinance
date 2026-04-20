@@ -1,6 +1,6 @@
 """
 价格服务 - 遍历所有持仓，调用对应 fetcher，写入 price_cache 和 exchange_rates
-支持降级逻辑：超时/报错时沿用上一交易日价格，标记 is_stale=True
+支持降级逻辑：超时/报错时不写入缓存，保留旧数据
 """
 
 import logging
@@ -26,7 +26,7 @@ def _fetch_by_market(code: str, market: str) -> dict | None:
 async def update_single_price(code: str, market: str) -> dict:
     """
     刷新单个标的的行情
-    返回 {"code": str, "updated": bool, "price": float|None, "growth_rate": float}
+    返回 {"code": str, "updated": bool, "price": float|None}
     """
     # 如果是港股，同时刷新汇率
     if market == "HK_STOCK":
@@ -50,32 +50,20 @@ async def update_single_price(code: str, market: str) -> dict:
             price=result["price"],
             currency=result["currency"],
             price_date=result["price_date"],
-            growth_rate=result.get("growth_rate", 0.0),
         )
         return {
             "code": code,
             "updated": True,
             "price": result["price"],
-            "growth_rate": result.get("growth_rate", 0.0),
         }
     else:
-        # 抓取失败，沿用旧价格并标记陈旧
+        # 抓取失败，不写入缓存，保留旧数据
         old_price = await price_repo.get_latest_price(code)
-        if old_price:
-            await price_repo.upsert_price(
-                code=code,
-                price=old_price["price"],
-                currency=old_price["currency"],
-                price_date=old_price["price_date"],
-                growth_rate=old_price.get("growth_rate", 0.0),
-                is_stale=True,
-            )
-        logger.warning(f"标的 {code} 行情获取失败，沿用旧缓存")
+        logger.warning(f"标的 {code} 行情获取失败，保留旧缓存")
         return {
             "code": code,
             "updated": False,
             "price": old_price["price"] if old_price else None,
-            "growth_rate": old_price.get("growth_rate", 0.0) if old_price else 0.0,
         }
 
 
@@ -135,23 +123,13 @@ async def update_all_prices() -> dict:
                 price=result["price"],
                 currency=result["currency"],
                 price_date=result["price_date"],
-                growth_rate=result.get("growth_rate", 0.0),
             )
             updated += 1
         else:
-            # 抓取失败，沿用旧价格并标记陈旧
+            # 抓取失败，不写入缓存，保留旧数据
             old_price = await price_repo.get_latest_price(code)
-            if old_price:
-                await price_repo.upsert_price(
-                    code=code,
-                    price=old_price["price"],
-                    currency=old_price["currency"],
-                    price_date=old_price["price_date"],
-                    growth_rate=old_price.get("growth_rate", 0.0),
-                    is_stale=True,
-                )
             failed += 1
-            logger.warning(f"标的 {code} 行情获取失败，沿用旧缓存")
+            logger.warning(f"标的 {code} 行情获取失败，保留旧缓存")
 
     return {
         "updated": updated,

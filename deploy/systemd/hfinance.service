@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/hfinance/backend
-ExecStart=/opt/hfinance/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=/opt/hfinance/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8820
 Restart=always
 RestartSec=5
 Environment=HFINANCE_ACCESS_PASSWORD=hfinance

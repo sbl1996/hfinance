@@ -141,9 +141,7 @@ class PriceCacheOut(BaseModel):
     price: float
     currency: CurrencyType
     price_date: str
-    growth_rate: float = 0.0
     source: str
-    is_stale: bool
 
 
 # ============ 汇率缓存 ============
@@ -156,26 +154,6 @@ class ExchangeRateOut(BaseModel):
 
 
 # ============ 每日快照 ============
-
-class DailySnapshotOut(BaseModel):
-    id: int
-    snapshot_date: str
-    total_assets_cny: float
-    total_liabilities_cny: float
-    net_assets_cny: float
-    daily_pnl_cny: float
-
-
-class DailyHoldingSnapshotOut(BaseModel):
-    id: int
-    code: str
-    name: str
-    quantity: float
-    price: float
-    currency: CurrencyType
-    market_value_cny: float
-    daily_pnl_cny: float
-
 
 # ============ Dashboard ============
 
@@ -195,17 +173,6 @@ class DistributionItem(BaseModel):
 
 class DashboardDistribution(BaseModel):
     items: list[DistributionItem]
-
-
-class CalendarDayPnl(BaseModel):
-    date: str
-    daily_pnl_cny: float
-
-
-class CalendarMonthOut(BaseModel):
-    year: int
-    month: int
-    days: list[CalendarDayPnl]
 
 
 # ============ 认证 ============

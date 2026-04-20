@@ -19,7 +19,6 @@ declare module 'vue' {
     LiabilityForm: typeof import('./src/components/LiabilityForm.vue')['default']
     LiabilityList: typeof import('./src/components/LiabilityList.vue')['default']
     OverviewCard: typeof import('./src/components/OverviewCard.vue')['default']
-    PnlCalendar: typeof import('./src/components/PnlCalendar.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     VanButton: typeof import('vant/es')['Button']

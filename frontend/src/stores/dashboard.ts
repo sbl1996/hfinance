@@ -5,7 +5,6 @@ import request from '@/utils/request'
 export const useDashboardStore = defineStore('dashboard', () => {
   const overview = ref<any>(null)
   const distribution = ref<any>(null)
-  const calendarData = ref<any>(null)
   const loading = ref(false)
 
   async function fetchOverview() {
@@ -23,11 +22,5 @@ export const useDashboardStore = defineStore('dashboard', () => {
     } catch { /* ignore */ }
   }
 
-  async function fetchCalendar(year: number, month: number) {
-    try {
-      calendarData.value = await request.get('/dashboard/calendar', { params: { year, month } })
-    } catch { /* ignore */ }
-  }
-
-  return { overview, distribution, calendarData, loading, fetchOverview, fetchDistribution, fetchCalendar }
+  return { overview, distribution, loading, fetchOverview, fetchDistribution }
 })

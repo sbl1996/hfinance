@@ -26,8 +26,17 @@ async def _enrich_holding(h: dict) -> HoldingOut:
         out.latest_price = price_data["price"]
         out.price_currency = CurrencyType(price_data["currency"])
         out.price_date = price_data["price_date"]
-        out.growth_rate = price_data.get("growth_rate", 0.0)
-        out.is_stale = bool(price_data.get("is_stale", 0))
+
+        # 动态判断数据是否陈旧：price_date 早于今天则为陈旧
+        from datetime import date
+        out.is_stale = price_data["price_date"] < date.today().isoformat()
+
+        # 动态计算涨跌幅：基于 price_cache 中最新价与前一日价格
+        prev_price_data = await price_repo.get_previous_price(h["code"], price_data["price_date"])
+        if prev_price_data and prev_price_data["price"] > 0:
+            out.growth_rate = (price_data["price"] - prev_price_data["price"]) / prev_price_data["price"]
+        else:
+            out.growth_rate = None
 
         # 计算市值(CNY)
         if h["market"] == MarketType.HK_STOCK.value:

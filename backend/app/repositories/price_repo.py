@@ -25,13 +25,24 @@ async def get_price_by_date(code: str, price_date: str) -> dict | None:
     return dict(row) if row else None
 
 
-async def upsert_price(code: str, price: float, currency: str, price_date: str, source: str = "akshare", is_stale: bool = False, growth_rate: float = 0.0) -> dict:
+async def get_previous_price(code: str, before_date: str) -> dict | None:
+    """获取某标的在指定日期之前最近一次的价格"""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM price_cache WHERE code = ? AND price_date < ? ORDER BY price_date DESC LIMIT 1",
+        (code, before_date),
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def upsert_price(code: str, price: float, currency: str, price_date: str, source: str = "akshare") -> dict:
     """写入价格缓存（UNIQUE 约束自动替换）"""
     db = await get_db()
     await db.execute(
-        """INSERT OR REPLACE INTO price_cache (code, price, currency, price_date, growth_rate, source, is_stale, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))""",
-        (code, price, currency, price_date, growth_rate, source, int(is_stale)),
+        """INSERT OR REPLACE INTO price_cache (code, price, currency, price_date, source, created_at)
+           VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))""",
+        (code, price, currency, price_date, source),
     )
     await db.commit()
     return await get_latest_price(code)

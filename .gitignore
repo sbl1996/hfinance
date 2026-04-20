@@ -4,6 +4,8 @@ __pycache__/
 *.egg-info/
 .venv/
 *.db
+backend/data/
+temp/
 
 # Node
 node_modules/

@@ -4,7 +4,6 @@ from fastapi import APIRouter
 
 from app.models.schemas import (
     DashboardOverview, DashboardDistribution, DistributionItem,
-    CalendarMonthOut, CalendarDayPnl, DailyHoldingSnapshotOut,
 )
 from app.repositories import cash_repo, liability_repo, holding_repo, price_repo, snapshot_repo
 
@@ -80,18 +79,3 @@ async def get_distribution():
         DistributionItem(name="负债", value_cny=round(total_liabilities, 2), percent=round(total_liabilities / total * 100, 2)),
     ]
     return DashboardDistribution(items=items)
-
-
-@router.get("/calendar", response_model=CalendarMonthOut)
-async def get_calendar(year: int, month: int):
-    """返回指定月份每日盈亏数据"""
-    rows = await snapshot_repo.get_month_pnl(year, month)
-    days = [CalendarDayPnl(date=r["snapshot_date"], daily_pnl_cny=r["daily_pnl_cny"]) for r in rows]
-    return CalendarMonthOut(year=year, month=month, days=days)
-
-
-@router.get("/calendar/{date}")
-async def get_calendar_detail(date: str):
-    """返回指定日期各标的盈亏明细"""
-    snapshots = await snapshot_repo.get_holding_snapshots_by_date(date)
-    return [DailyHoldingSnapshotOut(**s) for s in snapshots]
