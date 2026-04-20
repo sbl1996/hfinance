@@ -43,6 +43,7 @@ html {
 
 html, body, #app {
   height: 100%;
+  min-height: 100dvh;
   width: 100%;
   overflow-x: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Segoe UI, Arial, Roboto, 'PingFang SC', 'miui', 'Hiragino Sans GB', 'Microsoft Yahei', sans-serif;
@@ -52,25 +53,30 @@ html, body, #app {
 
 .app-container {
   height: 100%;
+  min-height: 100dvh;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  max-width: var(--max-content-width);
-  margin: 0 auto;
   position: relative;
+  overflow: hidden;
 }
 
 .app-content {
   flex: 1;
+  min-height: 0;
+  width: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 8px;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom) + 8px);
 }
 
-/* 限制 vant tabbar 在最大宽度内居中 */
 .van-tabbar {
-  max-width: var(--max-content-width);
-  left: 50% !important;
-  transform: translateX(-50%);
+  width: 100%;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: content-box;
 }
 
 /* 盈亏颜色 */
@@ -118,6 +124,21 @@ html, body, #app {
 
   .empty-tip {
     font-size: 15px !important;
+  }
+}
+
+@media screen and (min-width: 768px) {
+  .app-container {
+    max-width: var(--max-content-width);
+    margin: 0 auto;
+  }
+
+  /* 桌面端保持内容区与底部导航同宽并居中 */
+  .van-tabbar {
+    max-width: var(--max-content-width);
+    left: 50% !important;
+    right: auto;
+    transform: translateX(-50%);
   }
 }
 </style>

@@ -2,14 +2,14 @@
 行情抓取模块 - 调用 AKShare 获取各市场行情数据
 
 支持的行情类型：
-- 港股：stock_hk_hist_min_em（fallback: ocbrowser 东方财富网页爬取）
+- 港股：stock_hk_hist_min_em（fallback: agent-browser 富途网页爬取）
 - A股/ETF：fund_etf_spot_em / stock_zh_a_spot_em
 - 场外基金：fund_open_fund_info_em
 - 汇率：fx_spot_quote
 """
 
-import json
 import logging
+import platform
 import re
 import subprocess
 import time
@@ -55,11 +55,11 @@ def _fetch_hk_stock_akshare(code: str) -> dict | None:
         return None
 
 
-def _ocbrowser_cli(*args: str, json_output: bool = False) -> str:
-    """调用 ocbrowser CLI 命令，返回 stdout 文本"""
-    cmd = ["ocbrowser"]
-    if json_output:
-        cmd.append("--json")
+def _agent_browser_cli(*args: str) -> str:
+    """调用全局 agent-browser CLI，Linux 下附加 no-sandbox 参数"""
+    cmd = ["agent-browser"]
+    if platform.system() == "Linux":
+        cmd.extend(["--args", "--no-sandbox"])
     cmd.extend(args)
     result = subprocess.run(
         cmd,
@@ -68,45 +68,43 @@ def _ocbrowser_cli(*args: str, json_output: bool = False) -> str:
         timeout=settings.MARKET_FETCH_TIMEOUT,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"ocbrowser 命令失败: {result.stderr.strip()}")
+        raise RuntimeError(f"agent-browser 命令失败: {result.stderr.strip()}")
     return result.stdout.strip()
 
 
 def _fetch_hk_stock_browser(code: str) -> dict | None:
     """
-    通过 ocbrowser 访问东方财富港股页面获取价格（fallback 方式）
+    通过 agent-browser 访问富途港股页面获取价格（fallback 方式）
     :param code: 港股代码，如 "00700"
     :return: {"price": float, "price_date": str, "currency": "HKD", "growth_rate": float} 或 None
     """
-    target_id = None
     try:
-        # 1. 打开东方财富港股行情页
-        url = f"https://quote.eastmoney.com/hk/{code}.html"
-        open_output = _ocbrowser_cli("open", url, json_output=True)
-        open_result = json.loads(open_output)
-        target_id = open_result.get("targetId")
-        if not target_id:
-            logger.error("ocbrowser 打开港股页面失败，未获取到 targetId")
-            return None
+        # 1. 打开富途港股行情页
+        url = f"https://www.futunn.com/stock/{code}-HK"
+        _agent_browser_cli("open", url)
 
         # 2. 等待页面加载
         time.sleep(3)
 
-        # 3. 获取页面快照
-        snap_text = _ocbrowser_cli("snapshot", "--target-id", target_id)
+        # 3. 获取页面快照文本
+        snap_text = _agent_browser_cli("snapshot")
 
-        # 4. 用正则提取最新价
-        price_match = re.search(r"最新[：:]\s*(\d+\.\d+)", snap_text)
-        if not price_match:
-            logger.warning(f"浏览器 fallback 未在页面快照中找到港股 {code} 的最新价")
-            return None
-        growth_match = re.search(r"涨幅[：:]\s*([\d\.-]+)", snap_text)
-        if not growth_match:
-            logger.warning(f"浏览器 fallback 未在页面快照中找到港股 {code} 的日增长率")
+        # 4. 用富途页面结构提取最新价和涨幅
+        pattern = (
+            r'- StaticText "添加自选"\s+'
+            r'- list\s+'
+            r'- listitem \[level=1\]\s+'
+            r'- StaticText "(\d+(?:\.\d+)?)"\s+'
+            r'- listitem \[level=1\]\s+\s+'
+            r'- StaticText "[+-]?\d+(?:\.\d+)?[+-](\d+(?:\.\d+)?)%"'
+        )
+        match = re.search(pattern, snap_text, re.DOTALL)
+        if not match:
+            logger.warning(f"浏览器 fallback 未在页面快照中找到港股 {code} 的价格与日增长率")
             return None
 
-        latest_price = float(price_match.group(1))
-        growth_rate = float(growth_match.group(1)) / 100  # 页面显示百分比，转为小数
+        latest_price = float(match.group(1))
+        growth_rate = float(match.group(2)) / 100  # 页面显示百分比，转为小数
         return {
             "price": latest_price,
             "price_date": datetime.now().strftime("%Y-%m-%d"),
@@ -114,27 +112,25 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
             "growth_rate": growth_rate,
         }
     except FileNotFoundError:
-        logger.warning("ocbrowser 命令未找到，浏览器 fallback 不可用")
+        logger.warning("agent-browser 命令未找到，浏览器 fallback 不可用")
         return None
     except subprocess.TimeoutExpired:
-        logger.error(f"ocbrowser 获取港股 {code} 行情超时")
+        logger.error(f"agent-browser 获取港股 {code} 行情超时")
         return None
     except Exception as e:
         logger.error(f"浏览器 fallback 获取港股 {code} 行情失败: {e}")
         return None
     finally:
-        # 5. 关闭页面
-        if target_id:
-            try:
-                _ocbrowser_cli("close", target_id)
-            except Exception:
-                pass
+        try:
+            _agent_browser_cli("close")
+        except Exception:
+            pass
 
 
 def fetch_hk_stock(code: str) -> dict | None:
     """
     获取港股价格
-    优先使用 AKShare，失败时 fallback 到 ocbrowser 爬取东方财富网页
+    优先使用 AKShare，失败时 fallback 到 agent-browser 爬取富途网页
     :param code: 港股代码，如 "00700"
     :return: {"price": float, "price_date": str, "currency": "HKD", "growth_rate": float} 或 None
     """
