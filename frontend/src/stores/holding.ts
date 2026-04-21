@@ -8,6 +8,7 @@ export const useHoldingStore = defineStore('holding', () => {
   const summary = ref({ total_market_value_cny: 0, total_cost_cny: 0, total_pnl_cny: 0, daily_pnl_cny: 0 })
   const loading = ref(false)
   const refreshing = ref(false)
+  const invalidatingFundNavCache = ref(false)
   const refreshingCodes = ref<Set<string>>(new Set())
 
   async function fetchHoldings() {
@@ -61,6 +62,15 @@ export const useHoldingStore = defineStore('holding', () => {
     }
   }
 
+  async function invalidateFundNavCache() {
+    invalidatingFundNavCache.value = true
+    try {
+      await request.post('/market/fund-nav-cache/invalidate')
+    } finally {
+      invalidatingFundNavCache.value = false
+    }
+  }
+
   async function importFundHistory(id: number) {
     const result: any = await request.post(`/holdings/${id}/import-history`)
     showSuccessToast(result.detail || '全量导入完成')
@@ -68,5 +78,20 @@ export const useHoldingStore = defineStore('holding', () => {
     return result
   }
 
-  return { holdings, summary, loading, refreshing, refreshingCodes, fetchHoldings, createHolding, updateHolding, deleteHolding, refreshMarket, refreshSingle, importFundHistory }
+  return {
+    holdings,
+    summary,
+    loading,
+    refreshing,
+    invalidatingFundNavCache,
+    refreshingCodes,
+    fetchHoldings,
+    createHolding,
+    updateHolding,
+    deleteHolding,
+    refreshMarket,
+    refreshSingle,
+    invalidateFundNavCache,
+    importFundHistory,
+  }
 })

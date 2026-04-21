@@ -162,7 +162,7 @@ async function handleImport() {
   margin-top: 16px;
 }
 
-.delete-btn {
+.form-actions > * + * {
   margin-top: 8px;
 }
 </style>

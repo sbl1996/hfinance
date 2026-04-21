@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 
+from app.services.market_fetcher import invalidate_fund_nav_cache
 from app.services.price_service import update_all_prices, update_single_price
 from app.services.snapshot_service import generate_daily_snapshot
 
@@ -28,3 +29,10 @@ async def refresh_single_market(code: str, market: str = "HK_STOCK"):
     if not result["updated"]:
         raise HTTPException(status_code=502, detail=f"标的 {code} 行情获取失败")
     return result
+
+
+@router.post("/fund-nav-cache/invalidate")
+async def invalidate_fund_daily_cache():
+    """手动清空基金日净值总表缓存"""
+    invalidate_fund_nav_cache()
+    return {"ok": True}

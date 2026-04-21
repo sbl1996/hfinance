@@ -12,14 +12,14 @@ from app.services.market_fetcher import fetch_a_etf, fetch_fund_nav, fetch_hk_st
 logger = logging.getLogger(__name__)
 
 
-def _fetch_by_market(code: str, market: str) -> dict | None:
+async def _fetch_by_market(code: str, market: str) -> dict | None:
     """根据市场类型调用对应 fetcher"""
     if market == "HK_STOCK":
         return fetch_hk_stock(code)
     elif market == "A_STOCK":
         return fetch_a_etf(code)
     elif market == "FUND":
-        return fetch_fund_nav(code)
+        return await fetch_fund_nav(code)
     return None
 
 
@@ -40,7 +40,7 @@ async def update_single_price(code: str, market: str) -> dict:
 
     result = None
     try:
-        result = _fetch_by_market(code, market)
+        result = await _fetch_by_market(code, market)
     except Exception as e:
         logger.error(f"抓取 {code} 行情异常: {e}")
 
@@ -106,7 +106,7 @@ async def update_all_prices() -> dict:
         result = None
 
         try:
-            result = _fetch_by_market(code, market)
+            result = await _fetch_by_market(code, market)
         except Exception as e:
             logger.error(f"抓取 {code} 行情异常: {e}")
 

@@ -16,11 +16,17 @@ import time
 from datetime import datetime, timedelta
 
 import akshare as ak
+import pandas as pd
 
 from app.core.config import get_settings
+from app.repositories import price_repo
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+FUND_DAILY_CACHE_TTL_SECONDS = 3600
+_fund_daily_cache_df: pd.DataFrame | None = None
+_fund_daily_cache_expires_at: float = 0.0
 
 
 def _fetch_hk_stock_akshare(code: str) -> dict | None:
@@ -181,33 +187,68 @@ def fetch_a_etf(code: str) -> dict | None:
         return None
 
 
-def fetch_fund_nav(code: str) -> dict | None:
+async def fetch_fund_nav(code: str) -> dict | None:
     """
     获取场外基金净值
     :param code: 基金代码，如 "000001"
     :return: {"price": float, "price_date": str, "currency": "CNY", "growth_rate": float} 或 None
     """
     try:
-        df = ak.fund_open_fund_info_em(symbol=code)
+        df = _get_fund_open_fund_daily_df()
         if df.empty:
             logger.warning(f"基金 {code} 未找到净值数据")
             return None
-        # 取最后一行
-        last_row = df.iloc[-1]
-        nav = float(last_row["单位净值"])
-        nav_date = str(last_row["净值日期"])[:10]
-        # 日增长率
-        if "日增长率" in df.columns and len(df) >= 2:
-            growth_str = last_row["日增长率"]
+
+        fund_row = df[df["基金代码"].astype(str).str.zfill(6) == str(code).zfill(6)]
+        if fund_row.empty:
+            logger.warning(f"基金 {code} 未在日净值总表中找到")
+            return None
+
+        row = fund_row.iloc[0]
+        nav_columns: list[tuple[str, str]] = []
+        for column in df.columns:
+            match = re.fullmatch(r"(\d{4}-\d{2}-\d{2})-单位净值", str(column))
+            if match:
+                nav_columns.append((match.group(1), column))
+
+        nav_columns.sort(key=lambda item: item[0], reverse=True)
+
+        nav = None
+        nav_date = None
+        previous_nav = None
+        for date_str, column in nav_columns:
+            value = row.get(column)
+            if pd.isna(value) or value == "":
+                continue
+
             try:
-                growth_rate = float(growth_str) / 100
+                numeric_value = float(value)
             except (ValueError, TypeError):
-                growth_rate = 0.0
-        elif len(df) >= 2:
-            prev_nav = float(df.iloc[-2]["单位净值"])
-            growth_rate = (nav - prev_nav) / prev_nav if prev_nav != 0 else 0.0
-        else:
-            growth_rate = 0.0
+                continue
+
+            if nav is None:
+                nav = numeric_value
+                nav_date = date_str
+            else:
+                previous_nav = numeric_value
+                break
+
+        if nav is None or nav_date is None:
+            logger.warning(f"基金 {code} 未找到有效单位净值")
+            return None
+
+        if previous_nav is None:
+            previous_price = await price_repo.get_previous_price(str(code).zfill(6), nav_date)
+            if previous_price is not None:
+                try:
+                    previous_nav = float(previous_price["price"])
+                except (ValueError, TypeError, KeyError):
+                    previous_nav = None
+
+        growth_rate = 0.0
+        if previous_nav is not None and previous_nav != 0:
+            growth_rate = (nav - previous_nav) / previous_nav
+
         return {
             "price": nav,
             "price_date": nav_date,
@@ -217,6 +258,33 @@ def fetch_fund_nav(code: str) -> dict | None:
     except Exception as e:
         logger.error(f"获取基金 {code} 净值失败: {e}")
         return None
+
+
+def _get_fund_open_fund_daily_df(force_refresh: bool = False) -> pd.DataFrame:
+    """获取场外基金日净值总表，使用进程内 1 小时缓存降低 AKShare 调用频率。"""
+    global _fund_daily_cache_df, _fund_daily_cache_expires_at
+
+    now = time.time()
+    if (
+        not force_refresh
+        and _fund_daily_cache_df is not None
+        and now < _fund_daily_cache_expires_at
+    ):
+        return _fund_daily_cache_df
+
+    logger.info("刷新基金日净值总表缓存")
+    df = ak.fund_open_fund_daily_em()
+    _fund_daily_cache_df = df
+    _fund_daily_cache_expires_at = now + FUND_DAILY_CACHE_TTL_SECONDS
+    return df
+
+
+def invalidate_fund_nav_cache() -> None:
+    """手动清空场外基金日净值总表缓存。"""
+    global _fund_daily_cache_df, _fund_daily_cache_expires_at
+
+    _fund_daily_cache_df = None
+    _fund_daily_cache_expires_at = 0.0
 
 
 def fetch_hkdcny_rate() -> dict | None:

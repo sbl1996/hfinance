@@ -33,6 +33,15 @@
       >
         刷新行情
       </van-button>
+      <van-button
+        size="small"
+        plain
+        icon="warning-o"
+        :loading="holdingStore.invalidatingFundNavCache"
+        @click="handleInvalidateFundNavCache"
+      >
+        失效基金缓存
+      </van-button>
     </div>
 
     <!-- 持仓列表 -->
@@ -63,7 +72,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { showConfirmDialog } from 'vant'
+import { showConfirmDialog, showSuccessToast } from 'vant'
 import { useHoldingStore } from '@/stores/holding'
 import { formatMoney, pnlColorClass } from '@/utils/format'
 import HoldingList from '@/components/HoldingList.vue'
@@ -102,6 +111,11 @@ async function handleDelete(holding: any) {
 
 async function handleRefreshSingle(holding: any) {
   await holdingStore.refreshSingle(holding.code, holding.market)
+}
+
+async function handleInvalidateFundNavCache() {
+  await holdingStore.invalidateFundNavCache()
+  showSuccessToast('基金净值缓存已失效')
 }
 
 async function handleImportHistory(holding: any) {
