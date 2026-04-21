@@ -16,8 +16,7 @@ async def get_db() -> aiosqlite.Connection:
         _db.row_factory = aiosqlite.Row
         # 开启外键约束
         await _db.execute("PRAGMA foreign_keys = ON")
-        # WAL 模式，提升并发读写性能
-        await _db.execute("PRAGMA journal_mode = WAL")
+        await _db.execute(f"PRAGMA journal_mode = {settings.DB_JOURNAL_MODE}")
     return _db
 
 

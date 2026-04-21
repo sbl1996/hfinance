@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     # ---- 数据库 ----
     DB_PATH: str = str(Path(__file__).resolve().parent.parent.parent / "data" / "hfinance.db")
+    DB_JOURNAL_MODE: str = "DELETE"
 
     # ---- 认证 ----
     ACCESS_PASSWORD: str = "hfinance"  # 访问密码，生产环境务必修改
