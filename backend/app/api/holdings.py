@@ -6,7 +6,7 @@ from app.models.schemas import (
     HoldingCreate, HoldingOut, HoldingUpdate, HoldingListOut,
     CurrencyType, MarketType,
 )
-from app.repositories import holding_repo, price_repo, snapshot_repo
+from app.repositories import holding_repo, price_repo
 from app.services.fund_history_import_service import import_fund_history
 from app.services.snapshot_service import calculate_daily_metrics
 
@@ -75,12 +75,8 @@ async def list_holdings():
         if e.pnl_cny is not None:
             total_pnl += e.pnl_cny
 
-    # 今日盈亏优先取快照；若快照缺失或落后于最新行情缓存，则回退到实时计算值
-    latest_snapshot = await snapshot_repo.get_latest_snapshot()
-    daily_pnl = latest_snapshot["daily_pnl_cny"] if latest_snapshot else 0.0
     live_metrics = await calculate_daily_metrics(is_trading_day=True)
-    if live_metrics and (not latest_snapshot or latest_snapshot["snapshot_date"] < live_metrics["as_of_date"]):
-        daily_pnl = live_metrics["total_daily_pnl"]
+    daily_pnl = live_metrics["total_daily_pnl"] if live_metrics else 0.0
 
     return HoldingListOut(
         items=enriched,
