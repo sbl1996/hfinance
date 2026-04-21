@@ -117,6 +117,7 @@ class HoldingOut(BaseModel):
     price_currency: Optional[CurrencyType] = None
     price_date: Optional[str] = None
     growth_rate: Optional[float] = None
+    growth_pnl_cny: Optional[float] = None
     market_value_cny: Optional[float] = None
     pnl_cny: Optional[float] = None
     pnl_rate: Optional[float] = None

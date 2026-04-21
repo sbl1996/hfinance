@@ -31,9 +31,15 @@ async def _enrich_holding(h: dict) -> HoldingOut:
         # 动态计算涨跌幅：基于 price_cache 中最新价与前一日价格
         prev_price_data = await price_repo.get_previous_price(h["code"], price_data["price_date"])
         if prev_price_data and prev_price_data["price"] > 0:
-            out.growth_rate = (price_data["price"] - prev_price_data["price"]) / prev_price_data["price"]
+            price_diff = price_data["price"] - prev_price_data["price"]
+            out.growth_rate = price_diff / prev_price_data["price"]
+            if h["market"] == MarketType.HK_STOCK.value:
+                out.growth_pnl_cny = price_diff * h["quantity"] * hkdcny_rate
+            else:
+                out.growth_pnl_cny = price_diff * h["quantity"]
         else:
             out.growth_rate = None
+            out.growth_pnl_cny = None
 
         # 计算市值(CNY)
         if h["market"] == MarketType.HK_STOCK.value:

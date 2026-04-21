@@ -19,16 +19,22 @@
       </div>
       <div class="holding-info">
         <div class="holding-info-row">
-          <span class="info-label">代码</span>
-          <span class="info-value">{{ h.code }}</span>
-        </div>
-        <div class="holding-info-row">
-          <span class="info-label">数量</span>
-          <span class="info-value">{{ h.quantity }}</span>
+          <span class="info-label">市值</span>
+          <span class="info-value">{{ formatMoney(h.market_value_cny) }}</span>
         </div>
         <div class="holding-info-row">
           <span class="info-label">最新价</span>
           <span class="info-value">{{ h.latest_price ?? '--' }} {{ h.price_currency === 'HKD' ? 'HKD' : '' }}</span>
+        </div>
+        <div class="holding-info-row">
+          <span class="info-label">收益率</span>
+          <span :class="['info-value', pnlColorClass(h.pnl_rate)]">
+            {{ h.pnl_rate !== null && h.pnl_rate !== undefined ? formatPercent(h.pnl_rate) : '--' }}
+          </span>
+        </div>
+        <div class="holding-info-row">
+          <span class="info-label">数量</span>
+          <span class="info-value">{{ h.quantity }}</span>
         </div>
         <div class="holding-info-row">
           <span class="info-label">{{ growthRateLabel(h.price_date) }}</span>
@@ -37,13 +43,9 @@
           </span>
         </div>
         <div class="holding-info-row">
-          <span class="info-label">市值(CNY)</span>
-          <span class="info-value">{{ formatMoney(h.market_value_cny) }}</span>
-        </div>
-        <div class="holding-info-row">
-          <span class="info-label">收益率</span>
-          <span :class="['info-value', pnlColorClass(h.pnl_rate)]">
-            {{ h.pnl_rate !== null && h.pnl_rate !== undefined ? formatPercent(h.pnl_rate) : '--' }}
+          <span class="info-label">收益</span>
+          <span :class="['info-value', pnlColorClass(h.growth_pnl_cny)]">
+            {{ h.growth_pnl_cny !== null && h.growth_pnl_cny !== undefined ? formatMoney(h.growth_pnl_cny) : '--' }}
           </span>
         </div>
       </div>
