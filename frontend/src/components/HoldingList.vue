@@ -14,6 +14,9 @@
     >
       <div class="holding-header">
         <div class="header-left">
+          <span :class="['market-badge', `market-badge-${h.market?.toLowerCase?.() ?? 'default'}`]">
+            {{ marketLabel(h.market) }}
+          </span>
           <span class="holding-name">{{ h.name }}</span>
         </div>
         <div class="holding-actions">
@@ -127,6 +130,19 @@ function growthRateLabel(priceDate?: string | null) {
   const monthDay = formatMonthDay(priceDate)
   return monthDay === '--' ? '收益率' : `${monthDay}收益率`
 }
+
+function marketLabel(market?: string | null) {
+  if (market === 'A_STOCK') {
+    return 'A股'
+  }
+  if (market === 'HK_STOCK') {
+    return '港股'
+  }
+  if (market === 'FUND') {
+    return '基金'
+  }
+  return '--'
+}
 </script>
 
 <style scoped>
@@ -165,6 +181,38 @@ function growthRateLabel(priceDate?: string | null) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.market-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.market-badge-a_stock {
+  background: #e8f3ff;
+  color: #1f6fd6;
+}
+
+.market-badge-hk_stock {
+  background: #fff1e8;
+  color: #d46b08;
+}
+
+.market-badge-fund {
+  background: #edf8ee;
+  color: #389e0d;
+}
+
+.market-badge-default {
+  background: #f2f3f5;
+  color: #666;
 }
 
 .holding-pnl {
