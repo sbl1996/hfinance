@@ -1,20 +1,47 @@
 <template>
   <div class="holding-list">
-    <div v-for="h in holdings" :key="h.id" class="holding-item" @click="$emit('edit', h)">
+    <div
+      v-for="(h, index) in holdings"
+      :key="h.id"
+      :class="['holding-item', { 'holding-item-sort-mode': sortMode }]"
+      @click="handleItemClick(h)"
+      @touchstart.passive="startLongPress(h)"
+      @touchend="cancelLongPress"
+      @touchcancel="cancelLongPress"
+      @mousedown="startLongPress(h)"
+      @mouseup="cancelLongPress"
+      @mouseleave="cancelLongPress"
+    >
       <div class="holding-header">
         <div class="header-left">
           <span class="holding-name">{{ h.name }}</span>
         </div>
-        <span :class="['holding-pnl', pnlColorClass(h.pnl_cny)]">
-          {{ h.pnl_cny > 0 ? '+' : '' }}{{ formatMoney(h.pnl_cny) }}
-        </span>
         <div class="holding-actions">
-          <van-icon
-            name="replay"
-            size="18"
-            :class="['action-refresh', { 'action-refreshing': refreshingCodes.has(h.code) }]"
-            @click.stop="$emit('refresh', h)"
-          />
+          <template v-if="sortMode">
+            <van-icon
+              name="arrow-up"
+              size="18"
+              :class="['action-sort', { 'action-disabled': index === 0 }]"
+              @click.stop="index > 0 && emit('moveUp', h)"
+            />
+            <van-icon
+              name="arrow-down"
+              size="18"
+              :class="['action-sort', { 'action-disabled': index === holdings.length - 1 }]"
+              @click.stop="index < holdings.length - 1 && emit('moveDown', h)"
+            />
+          </template>
+          <template v-else>
+            <span :class="['holding-pnl', pnlColorClass(h.pnl_cny)]">
+              {{ h.pnl_cny > 0 ? '+' : '' }}{{ formatMoney(h.pnl_cny) }}
+            </span>
+            <van-icon
+              name="replay"
+              size="18"
+              :class="['action-refresh', { 'action-refreshing': refreshingCodes.has(h.code) }]"
+              @click.stop="$emit('refresh', h)"
+            />
+          </template>
         </div>
       </div>
       <div class="holding-info">
@@ -56,15 +83,45 @@
 <script setup lang="ts">
 import { formatMoney, formatMonthDay, formatPercent, pnlColorClass } from '@/utils/format'
 
-defineProps<{
+const props = defineProps<{
   holdings: any[]
   refreshingCodes: Set<string>
+  sortMode: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   edit: [holding: any]
   refresh: [holding: any]
+  enterSortMode: [holding: any]
+  moveUp: [holding: any]
+  moveDown: [holding: any]
 }>()
+
+let longPressTimer: number | null = null
+
+function startLongPress(holding: any) {
+  if (longPressTimer !== null) {
+    window.clearTimeout(longPressTimer)
+  }
+  longPressTimer = window.setTimeout(() => {
+    emit('enterSortMode', holding)
+    longPressTimer = null
+  }, 450)
+}
+
+function cancelLongPress() {
+  if (longPressTimer !== null) {
+    window.clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function handleItemClick(holding: any) {
+  cancelLongPress()
+  if (!props.sortMode) {
+    emit('edit', holding)
+  }
+}
 
 function growthRateLabel(priceDate?: string | null) {
   const monthDay = formatMonthDay(priceDate)
@@ -79,6 +136,12 @@ function growthRateLabel(priceDate?: string | null) {
   padding: 14px;
   margin-bottom: 8px;
   position: relative;
+  user-select: none;
+}
+
+.holding-item-sort-mode {
+  border: 1px solid #c9d8f5;
+  box-shadow: inset 0 0 0 1px rgba(25, 137, 250, 0.08);
 }
 
 .holding-header {
@@ -142,6 +205,16 @@ function growthRateLabel(priceDate?: string | null) {
 .action-refresh {
   color: #1989fa;
   cursor: pointer;
+}
+
+.action-sort {
+  color: #1989fa;
+  cursor: pointer;
+}
+
+.action-disabled {
+  color: #c8c9cc;
+  cursor: not-allowed;
 }
 
 .action-refreshing {

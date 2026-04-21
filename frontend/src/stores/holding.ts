@@ -37,6 +37,11 @@ export const useHoldingStore = defineStore('holding', () => {
     await fetchHoldings()
   }
 
+  async function reorderHoldings(items: Array<{ id: number; sort_order: number }>) {
+    await request.post('/holdings/reorder', { items })
+    await fetchHoldings()
+  }
+
   async function deleteHolding(id: number) {
     await request.delete(`/holdings/${id}`)
     await fetchHoldings()
@@ -88,6 +93,7 @@ export const useHoldingStore = defineStore('holding', () => {
     fetchHoldings,
     createHolding,
     updateHolding,
+    reorderHoldings,
     deleteHolding,
     refreshMarket,
     refreshSingle,

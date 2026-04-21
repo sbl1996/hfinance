@@ -12,4 +12,13 @@ async def init_database():
     db = await get_db()
     schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
     await db.executescript(schema_sql)
+    await db.execute(
+        """
+        INSERT INTO holding_sort_orders (holding_id, sort_order)
+        SELECT h.id, h.id
+        FROM holdings h
+        LEFT JOIN holding_sort_orders hso ON hso.holding_id = h.id
+        WHERE hso.holding_id IS NULL
+        """
+    )
     await db.commit()

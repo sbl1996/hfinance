@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import (
     HoldingCreate, HoldingOut, HoldingUpdate, HoldingListOut,
-    CurrencyType, MarketType,
+    CurrencyType, MarketType, HoldingReorderRequest,
 )
 from app.repositories import holding_repo, price_repo
 from app.services.fund_history_import_service import import_fund_history
@@ -110,6 +110,22 @@ async def delete_holding(item_id: int):
     if not success:
         raise HTTPException(status_code=404, detail="持仓不存在")
     return {"detail": "删除成功"}
+
+
+@router.post("/reorder")
+async def reorder_holdings(data: HoldingReorderRequest):
+    """批量更新持仓排序"""
+    existing_items = await holding_repo.get_all()
+    existing_ids = {item["id"] for item in existing_items}
+    request_ids = [item.id for item in data.items]
+
+    if len(request_ids) != len(set(request_ids)):
+        raise HTTPException(status_code=400, detail="排序请求包含重复持仓")
+    if set(request_ids) != existing_ids:
+        raise HTTPException(status_code=400, detail="排序请求必须包含全部持仓且不能包含未知持仓")
+
+    await holding_repo.reorder([item.model_dump() for item in data.items])
+    return {"detail": "排序已更新"}
 
 
 @router.post("/{item_id}/import-history")

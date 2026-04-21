@@ -17,7 +17,6 @@ async def refresh_market():
     live_metrics = await calculate_daily_metrics(is_trading_day=is_trading_day)
     return {
         "price_update": result,
-        "snapshot_date": None,
         "daily_pnl_cny": live_metrics["total_daily_pnl"] if live_metrics else 0,
     }
 

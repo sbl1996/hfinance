@@ -112,6 +112,7 @@ class HoldingOut(BaseModel):
     market: MarketType
     quantity: float
     cost_total_cny: float
+    sort_order: int = 0
     # 以下字段由 API 层动态计算
     latest_price: Optional[float] = None
     price_currency: Optional[CurrencyType] = None
@@ -132,6 +133,15 @@ class HoldingListOut(BaseModel):
     total_cost_cny: float
     total_pnl_cny: float
     daily_pnl_cny: float = 0.0
+
+
+class HoldingReorderItem(BaseModel):
+    id: int
+    sort_order: int = Field(ge=0)
+
+
+class HoldingReorderRequest(BaseModel):
+    items: list[HoldingReorderItem]
 
 
 # ============ 行情缓存 ============
