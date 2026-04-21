@@ -16,6 +16,70 @@ from app.repositories import holding_repo, price_repo, snapshot_repo
 logger = logging.getLogger(__name__)
 
 
+async def calculate_daily_metrics(
+    *,
+    is_trading_day: bool = True,
+) -> dict | None:
+    """
+    计算当前持仓的日盈亏与投资市值，不写入快照表。
+
+    :param is_trading_day: 是否交易日（非交易日 daily_pnl 直接记为 0）
+    :return: {"as_of_date": str, "total_daily_pnl": float, "total_market_value": float} 或 None
+    """
+    holdings = await holding_repo.get_all()
+    if not holdings:
+        logger.info("无持仓，跳过日盈亏计算")
+        return None
+
+    rate_data = await price_repo.get_latest_rate("HKDCNY")
+    hkdcny_rate = rate_data["rate"] if rate_data else 1.0
+
+    total_daily_pnl = 0.0
+    total_market_value = 0.0
+    as_of_date = None
+
+    for h in holdings:
+        code = h["code"]
+        market = h["market"]
+        quantity = h["quantity"]
+
+        today_price_data = await price_repo.get_latest_price(code)
+        if not today_price_data:
+            logger.warning(f"标的 {code} 无价格缓存，跳过日盈亏计算")
+            continue
+
+        today_price = today_price_data["price"]
+        price_date = today_price_data["price_date"]
+        if as_of_date is None or price_date > as_of_date:
+            as_of_date = price_date
+
+        if market == "HK_STOCK":
+            market_value_cny = today_price * quantity * hkdcny_rate
+        else:
+            market_value_cny = today_price * quantity
+        total_market_value += market_value_cny
+
+        daily_pnl = 0.0
+        if is_trading_day:
+            # 以前一条实际缓存行情作为对比基准，避免缓存停留在历史日期时把“当前价”误当成“昨日价”
+            previous_price_data = await price_repo.get_previous_price(code, price_date)
+            if previous_price_data:
+                previous_price = previous_price_data["price"]
+                # ⚠️ Limitation: 使用今日持仓数量，当日内调仓会导致偏差
+                if market == "HK_STOCK":
+                    daily_pnl = (today_price - previous_price) * quantity * hkdcny_rate
+                else:
+                    daily_pnl = (today_price - previous_price) * quantity
+
+        total_daily_pnl += daily_pnl
+
+    return {
+        "as_of_date": as_of_date or datetime.now().strftime("%Y-%m-%d"),
+        "total_daily_pnl": round(0.0 if not is_trading_day else total_daily_pnl, 2),
+        "total_market_value": round(total_market_value, 2),
+    }
+
+
 async def generate_daily_snapshot(is_trading_day: bool = True) -> dict | None:
     """
     生成每日快照
@@ -23,55 +87,11 @@ async def generate_daily_snapshot(is_trading_day: bool = True) -> dict | None:
     :return: 快照字典 或 None
     """
     today = datetime.now().strftime("%Y-%m-%d")
-    holdings = await holding_repo.get_all()
-
-    if not holdings:
-        logger.info("无持仓，跳过快照生成")
+    metrics = await calculate_daily_metrics(is_trading_day=is_trading_day)
+    if not metrics:
         return None
-
-    # 获取汇率
-    rate_data = await price_repo.get_latest_rate("HKDCNY")
-    hkdcny_rate = rate_data["rate"] if rate_data else 1.0
-
-    total_daily_pnl = 0.0
-    total_market_value = 0.0
-
-    for h in holdings:
-        code = h["code"]
-        market = h["market"]
-        quantity = h["quantity"]
-
-        # 获取今日价格
-        today_price_data = await price_repo.get_latest_price(code)
-        if not today_price_data:
-            logger.warning(f"标的 {code} 无价格缓存，跳过快照")
-            continue
-
-        today_price = today_price_data["price"]
-        currency = today_price_data["currency"]
-
-        # 计算市值(CNY)
-        if market == "HK_STOCK":
-            market_value_cny = today_price * quantity * hkdcny_rate
-        else:
-            market_value_cny = today_price * quantity
-
-        total_market_value += market_value_cny
-
-        # 计算今日盈亏
-        daily_pnl = 0.0
-        if is_trading_day:
-            # 尝试获取昨日价格
-            yesterday_price_data = await price_repo.get_previous_price(code, today)
-            yesterday_price = yesterday_price_data["price"] if yesterday_price_data else None
-            if yesterday_price is not None:
-                # ⚠️ Limitation: 使用今日持仓数量，当日内调仓会导致偏差
-                if market == "HK_STOCK":
-                    daily_pnl = (today_price - yesterday_price) * quantity * hkdcny_rate
-                else:
-                    daily_pnl = (today_price - yesterday_price) * quantity
-
-        total_daily_pnl += daily_pnl
+    total_daily_pnl = metrics["total_daily_pnl"]
+    total_market_value = metrics["total_market_value"]
 
     # 获取现金和负债总额
     from app.repositories import cash_repo, liability_repo
@@ -79,10 +99,6 @@ async def generate_daily_snapshot(is_trading_day: bool = True) -> dict | None:
     total_liabilities = await liability_repo.get_total_amount()
     total_assets = total_cash + total_market_value
     net_assets = total_assets - total_liabilities
-
-    # 非交易日盈亏为 0
-    if not is_trading_day:
-        total_daily_pnl = 0.0
 
     # 创建或更新快照
     snapshot = await snapshot_repo.create_snapshot(

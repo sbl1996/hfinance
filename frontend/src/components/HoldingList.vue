@@ -4,7 +4,6 @@
       <div class="holding-header">
         <div class="header-left">
           <span class="holding-name">{{ h.name }}</span>
-          <van-tag v-if="h.is_stale" type="warning" size="medium" class="stale-tag">数据陈旧</van-tag>
         </div>
         <span :class="['holding-pnl', pnlColorClass(h.pnl_cny)]">
           {{ h.pnl_cny > 0 ? '+' : '' }}{{ formatMoney(h.pnl_cny) }}
@@ -32,7 +31,7 @@
           <span class="info-value">{{ h.latest_price ?? '--' }} {{ h.price_currency === 'HKD' ? 'HKD' : '' }}</span>
         </div>
         <div class="holding-info-row">
-          <span class="info-label">日增长率</span>
+          <span class="info-label">{{ growthRateLabel(h.price_date) }}</span>
           <span :class="['info-value', pnlColorClass(h.growth_rate)]">
             {{ h.growth_rate !== null && h.growth_rate !== undefined ? formatPercent(h.growth_rate) : '--' }}
           </span>
@@ -53,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatMoney, formatPercent, pnlColorClass } from '@/utils/format'
+import { formatMoney, formatMonthDay, formatPercent, pnlColorClass } from '@/utils/format'
 
 defineProps<{
   holdings: any[]
@@ -64,6 +63,11 @@ defineEmits<{
   edit: [holding: any]
   refresh: [holding: any]
 }>()
+
+function growthRateLabel(priceDate?: string | null) {
+  const monthDay = formatMonthDay(priceDate)
+  return monthDay === '--' ? '收益率' : `${monthDay}收益率`
+}
 </script>
 
 <style scoped>
@@ -96,10 +100,6 @@ defineEmits<{
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.stale-tag {
-  flex-shrink: 0;
 }
 
 .holding-pnl {

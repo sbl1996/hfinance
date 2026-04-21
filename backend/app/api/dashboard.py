@@ -6,6 +6,7 @@ from app.models.schemas import (
     DashboardOverview, DashboardDistribution, DistributionItem,
 )
 from app.repositories import cash_repo, liability_repo, holding_repo, price_repo, snapshot_repo
+from app.services.snapshot_service import calculate_daily_metrics
 
 router = APIRouter()
 
@@ -36,9 +37,12 @@ async def get_overview():
     net_assets = total_assets - total_liabilities
     total_pnl = total_investment_mv - total_cost
 
-    # 今日盈亏取最新快照
+    # 今日盈亏优先取快照；若快照缺失或落后于最新行情缓存，则回退到实时计算值
     latest_snapshot = await snapshot_repo.get_latest_snapshot()
     daily_pnl = latest_snapshot["daily_pnl_cny"] if latest_snapshot else 0.0
+    live_metrics = await calculate_daily_metrics(is_trading_day=True)
+    if live_metrics and (not latest_snapshot or latest_snapshot["snapshot_date"] < live_metrics["as_of_date"]):
+        daily_pnl = live_metrics["total_daily_pnl"]
 
     return DashboardOverview(
         net_assets_cny=round(net_assets, 2),

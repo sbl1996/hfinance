@@ -29,6 +29,17 @@ export function formatPercent(value: number | null, decimals = 2): string {
 }
 
 /**
+ * 将 YYYY-MM-DD 格式化为 MM-DD
+ * @param value 日期字符串
+ */
+export function formatMonthDay(value: string | null | undefined): string {
+  if (!value) return '--'
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return value
+  return `${match[2]}-${match[3]}`
+}
+
+/**
  * 盈亏颜色类名
  * 正数返回 'pnl-positive' (红)，负数返回 'pnl-negative' (绿)，零返回 ''
  */
