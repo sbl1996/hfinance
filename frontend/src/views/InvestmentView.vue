@@ -53,8 +53,10 @@
     <HoldingForm
       v-model:show="showForm"
       :holding="editingHolding"
+      :importing-history="importingHistory"
       @submit="handleFormSubmit"
       @delete="handleDelete"
+      @import-history="handleImportHistory"
     />
   </div>
 </template>
@@ -70,6 +72,7 @@ import HoldingForm from '@/components/HoldingForm.vue'
 const holdingStore = useHoldingStore()
 const showForm = ref(false)
 const editingHolding = ref<any>(null)
+const importingHistory = ref(false)
 
 onMounted(() => {
   holdingStore.fetchHoldings()
@@ -99,6 +102,16 @@ async function handleDelete(holding: any) {
 
 async function handleRefreshSingle(holding: any) {
   await holdingStore.refreshSingle(holding.code, holding.market)
+}
+
+async function handleImportHistory(holding: any) {
+  importingHistory.value = true
+  try {
+    await holdingStore.importFundHistory(holding.id)
+    editingHolding.value = holdingStore.holdings.find((item) => item.id === holding.id) || editingHolding.value
+  } finally {
+    importingHistory.value = false
+  }
 }
 </script>
 

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import request from '@/utils/request'
+import { showSuccessToast } from 'vant'
 
 export const useHoldingStore = defineStore('holding', () => {
   const holdings = ref<any[]>([])
@@ -60,5 +61,12 @@ export const useHoldingStore = defineStore('holding', () => {
     }
   }
 
-  return { holdings, summary, loading, refreshing, refreshingCodes, fetchHoldings, createHolding, updateHolding, deleteHolding, refreshMarket, refreshSingle }
+  async function importFundHistory(id: number) {
+    const result: any = await request.post(`/holdings/${id}/import-history`)
+    showSuccessToast(result.detail || '全量导入完成')
+    await fetchHoldings()
+    return result
+  }
+
+  return { holdings, summary, loading, refreshing, refreshingCodes, fetchHoldings, createHolding, updateHolding, deleteHolding, refreshMarket, refreshSingle, importFundHistory }
 })

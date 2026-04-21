@@ -7,6 +7,7 @@ from app.models.schemas import (
     CurrencyType, MarketType,
 )
 from app.repositories import holding_repo, price_repo, snapshot_repo
+from app.services.fund_history_import_service import import_fund_history
 from app.services.snapshot_service import calculate_daily_metrics
 
 router = APIRouter()
@@ -113,3 +114,25 @@ async def delete_holding(item_id: int):
     if not success:
         raise HTTPException(status_code=404, detail="持仓不存在")
     return {"detail": "删除成功"}
+
+
+@router.post("/{item_id}/import-history")
+async def import_holding_history(item_id: int):
+    """全量导入基金历史净值到 price_cache"""
+    holding = await holding_repo.get_by_id(item_id)
+    if not holding:
+        raise HTTPException(status_code=404, detail="持仓不存在")
+    if holding["market"] != MarketType.FUND.value:
+        raise HTTPException(status_code=400, detail="只有基金持仓支持全量导入")
+
+    try:
+        result = await import_fund_history(code=holding["code"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"全量导入失败: {exc}") from exc
+
+    return {
+        "detail": f"已导入 {result['inserted']} 条净值记录",
+        **result,
+    }

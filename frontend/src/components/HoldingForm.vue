@@ -30,6 +30,18 @@
       />
       <div class="form-actions">
         <van-button block type="primary" round @click="handleSubmit">确认</van-button>
+        <van-button
+          v-if="holding && isFundHolding"
+          block
+          round
+          plain
+          type="primary"
+          class="import-btn"
+          :loading="importingHistory"
+          @click="handleImport"
+        >
+          全量导入净值
+        </van-button>
         <van-button v-if="holding" block type="danger" round plain class="delete-btn" @click="handleDelete">删除持仓</van-button>
       </div>
     </div>
@@ -44,18 +56,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { computed, ref, reactive, watch } from 'vue'
 import { showConfirmDialog } from 'vant'
 
 const props = defineProps<{
   show: boolean
   holding: any
+  importingHistory?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
   submit: [data: any]
   delete: [holding: any]
+  importHistory: [holding: any]
 }>()
 
 const visible = ref(props.show)
@@ -70,6 +84,11 @@ const marketColumns = [
 ]
 
 const marketLabels: Record<string, string> = { A_STOCK: 'A股', HK_STOCK: '港股', FUND: '基金' }
+const isFundHolding = computed(() => {
+  if (!props.holding) return false
+  return props.holding.market === 'FUND'
+})
+const importingHistory = computed(() => Boolean(props.importingHistory))
 
 const form = reactive({
   code: '',
@@ -120,6 +139,11 @@ async function handleDelete() {
     emit('delete', props.holding)
     visible.value = false
   } catch { /* cancelled */ }
+}
+
+async function handleImport() {
+  if (!props.holding || importingHistory.value) return
+  emit('importHistory', props.holding)
 }
 </script>
 
