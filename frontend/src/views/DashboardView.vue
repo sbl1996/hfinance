@@ -17,10 +17,10 @@ import DistributionChart from '@/components/DistributionChart.vue'
 const dashboardStore = useDashboardStore()
 
 onMounted(async () => {
-  await Promise.all([
-    dashboardStore.fetchOverview(),
-    dashboardStore.fetchDistribution(),
-  ])
+  // 并行发起请求，不使用 await Promise.all 以免一个失败全部中断
+  // 这里允许每个请求各自失败，错误由 axios 拦截器处理
+  dashboardStore.fetchOverview().catch(() => {})
+  dashboardStore.fetchDistribution().catch(() => {})
 })
 </script>
 
