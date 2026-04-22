@@ -8,7 +8,7 @@ async def get_all() -> list[dict]:
     db = await get_db()
     cursor = await db.execute(
         """
-        SELECT h.*, hso.sort_order AS sort_order
+        SELECT h.*, hso.sort_order AS sort_order, hso.ignored AS ignored
         FROM holdings h
         INNER JOIN holding_sort_orders hso ON hso.holding_id = h.id
         ORDER BY hso.sort_order ASC, h.id ASC
@@ -22,7 +22,7 @@ async def get_by_id(item_id: int) -> dict | None:
     db = await get_db()
     cursor = await db.execute(
         """
-        SELECT h.*, hso.sort_order AS sort_order
+        SELECT h.*, hso.sort_order AS sort_order, hso.ignored AS ignored
         FROM holdings h
         INNER JOIN holding_sort_orders hso ON hso.holding_id = h.id
         WHERE h.id = ?
@@ -42,7 +42,7 @@ async def create(data: HoldingCreate) -> dict:
         (data.code, data.name, data.market.value, data.quantity, data.cost_total_cny),
     )
     await db.execute(
-        "INSERT INTO holding_sort_orders (holding_id, sort_order) VALUES (?, ?)",
+        "INSERT INTO holding_sort_orders (holding_id, sort_order, ignored) VALUES (?, ?, 0)",
         (cursor.lastrowid, next_sort_order),
     )
     await db.commit()
@@ -84,8 +84,8 @@ async def reorder(items: list[dict]) -> None:
         for item in items:
             await db.execute(
                 """
-                INSERT INTO holding_sort_orders (holding_id, sort_order, updated_at)
-                VALUES (?, ?, datetime('now', 'localtime'))
+                INSERT INTO holding_sort_orders (holding_id, sort_order, ignored, updated_at)
+                VALUES (?, ?, 0, datetime('now', 'localtime'))
                 ON CONFLICT(holding_id) DO UPDATE SET
                     sort_order = excluded.sort_order,
                     updated_at = excluded.updated_at
@@ -100,3 +100,25 @@ async def reorder(items: list[dict]) -> None:
     except Exception:
         await db.rollback()
         raise
+
+
+async def set_ignored(item_id: int, ignored: bool) -> dict | None:
+    existing = await get_by_id(item_id)
+    if not existing:
+        return None
+
+    db = await get_db()
+    await db.execute(
+        """
+        UPDATE holding_sort_orders
+        SET ignored = ?, updated_at = datetime('now', 'localtime')
+        WHERE holding_id = ?
+        """,
+        (1 if ignored else 0, item_id),
+    )
+    await db.execute(
+        "UPDATE holdings SET updated_at = datetime('now', 'localtime') WHERE id = ?",
+        (item_id,),
+    )
+    await db.commit()
+    return await get_by_id(item_id)

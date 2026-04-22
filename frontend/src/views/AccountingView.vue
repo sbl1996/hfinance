@@ -3,10 +3,12 @@
     <!-- 现金账户 -->
     <div class="section">
       <div class="section-header">
-        <h3 class="section-title">现金与理财</h3>
-        <van-button size="mini" type="primary" icon="plus" @click="openCashForm()">新增</van-button>
+        <div class="header-left">
+          <h3 class="section-title">现金与理财</h3>
+          <span class="section-total">合计：{{ formatMoney(cashStore.totalBalance) }}</span>
+        </div>
+        <van-button size="small" type="primary" plain round icon="plus" @click="openCashForm()">新增</van-button>
       </div>
-      <div class="section-total">合计：{{ formatMoney(cashStore.totalBalance) }}</div>
       <CashAccountList
         :accounts="cashStore.accounts"
         :loading="cashStore.loading"
@@ -18,10 +20,12 @@
     <!-- 负债 -->
     <div class="section">
       <div class="section-header">
-        <h3 class="section-title">负债</h3>
-        <van-button size="mini" type="danger" icon="plus" @click="openLiabilityForm()">新增</van-button>
+        <div class="header-left">
+          <h3 class="section-title">负债</h3>
+          <span class="section-total">合计：{{ formatMoney(liabilityStore.totalAmount) }}</span>
+        </div>
+        <van-button size="small" type="danger" plain round icon="plus" @click="openLiabilityForm()">新增</van-button>
       </div>
-      <div class="section-total">合计：{{ formatMoney(liabilityStore.totalAmount) }}</div>
       <LiabilityList
         :liabilities="liabilityStore.liabilities"
         :loading="liabilityStore.loading"
@@ -127,19 +131,25 @@ async function handleDeleteLiability(liability: any) {
 .section-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .section-title {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
+  color: #323233;
 }
 
 .section-total {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 8px;
-  padding-left: 4px;
+  font-size: 13px;
+  color: #969799;
 }
 </style>

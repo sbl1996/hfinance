@@ -42,6 +42,18 @@
         >
           全量导入净值
         </van-button>
+        <van-button
+          v-if="holding"
+          block
+          round
+          plain
+          type="warning"
+          class="ignore-btn"
+          :loading="updatingIgnored"
+          @click="handleToggleIgnored"
+        >
+          {{ holding.ignored ? '取消忽略盈亏统计' : '忽略盈亏统计' }}
+        </van-button>
         <van-button v-if="holding" block type="danger" round plain class="delete-btn" @click="handleDelete">删除持仓</van-button>
       </div>
     </div>
@@ -63,6 +75,7 @@ const props = defineProps<{
   show: boolean
   holding: any
   importingHistory?: boolean
+  updatingIgnored?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -70,6 +83,7 @@ const emit = defineEmits<{
   submit: [data: any]
   delete: [holding: any]
   importHistory: [holding: any]
+  toggleIgnored: [holding: any]
 }>()
 
 const visible = ref(props.show)
@@ -89,6 +103,7 @@ const isFundHolding = computed(() => {
   return props.holding.market === 'FUND'
 })
 const importingHistory = computed(() => Boolean(props.importingHistory))
+const updatingIgnored = computed(() => Boolean(props.updatingIgnored))
 
 const form = reactive({
   code: '',
@@ -144,6 +159,11 @@ async function handleDelete() {
 async function handleImport() {
   if (!props.holding || importingHistory.value) return
   emit('importHistory', props.holding)
+}
+
+function handleToggleIgnored() {
+  if (!props.holding || updatingIgnored.value) return
+  emit('toggleIgnored', props.holding)
 }
 </script>
 

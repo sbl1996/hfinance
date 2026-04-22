@@ -18,6 +18,7 @@
             {{ marketLabel(h.market) }}
           </span>
           <span class="holding-name">{{ h.name }}</span>
+          <span v-if="h.ignored" class="ignored-badge">已忽略</span>
         </div>
         <div class="holding-actions">
           <template v-if="sortMode">
@@ -213,6 +214,20 @@ function marketLabel(market?: string | null) {
 .market-badge-default {
   background: #f2f3f5;
   color: #666;
+}
+
+.ignored-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: #8c6d1f;
+  background: #fff7e6;
+  flex-shrink: 0;
 }
 
 .holding-pnl {

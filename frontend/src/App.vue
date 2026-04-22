@@ -105,8 +105,7 @@ html, body, #app {
   .holding-name,
   .section-title,
   .card-title,
-  .legend-value,
-  .ring-total {
+  .legend-value {
     font-size: 17px !important;
   }
 

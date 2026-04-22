@@ -21,21 +21,27 @@ async def get_overview():
     holdings = await holding_repo.get_all()
     total_investment_mv = 0.0
     total_cost = 0.0
+    ignored_market_value = 0.0
     rate_data = await price_repo.get_latest_rate("HKDCNY")
     hkdcny_rate = rate_data["rate"] if rate_data else 1.0
 
     for h in holdings:
         price_data = await price_repo.get_latest_price(h["code"])
         if price_data:
+            holding_market_value = 0.0
             if h["market"] == "HK_STOCK":
-                total_investment_mv += price_data["price"] * h["quantity"] * hkdcny_rate
+                holding_market_value = price_data["price"] * h["quantity"] * hkdcny_rate
             else:
-                total_investment_mv += price_data["price"] * h["quantity"]
-        total_cost += h["cost_total_cny"]
+                holding_market_value = price_data["price"] * h["quantity"]
+            total_investment_mv += holding_market_value
+            if h["ignored"]:
+                ignored_market_value += holding_market_value
+        if not h["ignored"]:
+            total_cost += h["cost_total_cny"]
 
     total_assets = total_cash + total_investment_mv
     net_assets = total_assets - total_liabilities
-    total_pnl = total_investment_mv - total_cost
+    total_pnl = (total_investment_mv - ignored_market_value) - total_cost
 
     live_metrics = await calculate_daily_metrics(is_trading_day=True)
     daily_pnl = live_metrics["total_daily_pnl"] if live_metrics else 0.0

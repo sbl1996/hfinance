@@ -81,9 +81,11 @@
       v-model:show="showForm"
       :holding="editingHolding"
       :importing-history="importingHistory"
+      :updating-ignored="updatingIgnored"
       @submit="handleFormSubmit"
       @delete="handleDelete"
       @import-history="handleImportHistory"
+      @toggle-ignored="handleToggleIgnored"
     />
   </div>
 </template>
@@ -100,6 +102,7 @@ const holdingStore = useHoldingStore()
 const showForm = ref(false)
 const editingHolding = ref<any>(null)
 const importingHistory = ref(false)
+const updatingIgnored = ref(false)
 const sortMode = ref(false)
 const savingSort = ref(false)
 const sortDraft = ref<any[]>([])
@@ -219,6 +222,16 @@ async function handleImportHistory(holding: any) {
     editingHolding.value = holdingStore.holdings.find((item) => item.id === holding.id) || editingHolding.value
   } finally {
     importingHistory.value = false
+  }
+}
+
+async function handleToggleIgnored(holding: any) {
+  updatingIgnored.value = true
+  try {
+    await holdingStore.updateHoldingIgnored(holding.id, !holding.ignored)
+    editingHolding.value = holdingStore.holdings.find((item) => item.id === holding.id) || editingHolding.value
+  } finally {
+    updatingIgnored.value = false
   }
 }
 </script>

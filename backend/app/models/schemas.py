@@ -105,6 +105,10 @@ class HoldingUpdate(BaseModel):
     cost_total_cny: Optional[float] = None
 
 
+class HoldingIgnoreUpdate(BaseModel):
+    ignored: bool
+
+
 class HoldingOut(BaseModel):
     id: int
     code: str
@@ -113,6 +117,7 @@ class HoldingOut(BaseModel):
     quantity: float
     cost_total_cny: float
     sort_order: int = 0
+    ignored: bool = False
     # 以下字段由 API 层动态计算
     latest_price: Optional[float] = None
     price_currency: Optional[CurrencyType] = None

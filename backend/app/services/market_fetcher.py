@@ -1,8 +1,8 @@
 """
-行情抓取模块 - 调用 AKShare 获取各市场行情数据
+行情抓取模块 - 获取各市场行情数据
 
 支持的行情类型：
-- 港股：stock_hk_hist_min_em（fallback: agent-browser 富途网页爬取）
+- 港股：agent-browser 富途网页爬取（fallback: stock_hk_hist_min_em）
 - A股/ETF：fund_etf_spot_em / stock_zh_a_spot_em
 - 场外基金：fund_open_fund_info_em
 - 汇率：fx_spot_quote
@@ -80,7 +80,7 @@ def _agent_browser_cli(*args: str) -> str:
 
 def _fetch_hk_stock_browser(code: str) -> dict | None:
     """
-    通过 agent-browser 访问富途港股页面获取价格（fallback 方式）
+    通过 agent-browser 访问富途港股页面获取价格
     :param code: 港股代码，如 "00700"
     :return: {"price": float, "price_date": str, "currency": "HKD", "growth_rate": float} 或 None
     """
@@ -106,7 +106,7 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
         )
         match = re.search(pattern, snap_text, re.DOTALL)
         if not match:
-            logger.warning(f"浏览器 fallback 未在页面快照中找到港股 {code} 的价格与日增长率")
+            logger.warning(f"浏览器抓取未在页面快照中找到港股 {code} 的价格与日增长率")
             return None
 
         latest_price = float(match.group(1))
@@ -124,7 +124,7 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
         logger.error(f"agent-browser 获取港股 {code} 行情超时")
         return None
     except Exception as e:
-        logger.error(f"浏览器 fallback 获取港股 {code} 行情失败: {e}")
+        logger.error(f"浏览器获取港股 {code} 行情失败: {e}")
         return None
     finally:
         try:
@@ -136,16 +136,16 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
 def fetch_hk_stock(code: str) -> dict | None:
     """
     获取港股价格
-    优先使用 AKShare，失败时 fallback 到 agent-browser 爬取富途网页
+    优先使用 agent-browser 爬取富途网页，失败时 fallback 到 AKShare
     :param code: 港股代码，如 "00700"
     :return: {"price": float, "price_date": str, "currency": "HKD", "growth_rate": float} 或 None
     """
-    result = _fetch_hk_stock_akshare(code)
+    result = _fetch_hk_stock_browser(code)
     if result is not None:
         return result
 
-    logger.info(f"港股 {code} AKShare 获取失败，尝试浏览器 fallback")
-    return _fetch_hk_stock_browser(code)
+    logger.info(f"港股 {code} 浏览器抓取失败，尝试 AKShare fallback")
+    return _fetch_hk_stock_akshare(code)
 
 
 def fetch_a_etf(code: str) -> dict | None:

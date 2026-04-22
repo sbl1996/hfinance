@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import (
     HoldingCreate, HoldingOut, HoldingUpdate, HoldingListOut,
-    CurrencyType, MarketType, HoldingReorderRequest,
+    CurrencyType, MarketType, HoldingReorderRequest, HoldingIgnoreUpdate,
 )
 from app.repositories import holding_repo, price_repo
 from app.services.fund_history_import_service import import_fund_history
@@ -72,7 +72,7 @@ async def list_holdings():
         if e.market_value_cny is not None:
             total_mv += e.market_value_cny
         total_cost += h["cost_total_cny"]
-        if e.pnl_cny is not None:
+        if not e.ignored and e.pnl_cny is not None:
             total_pnl += e.pnl_cny
 
     live_metrics = await calculate_daily_metrics(is_trading_day=True)
@@ -98,6 +98,15 @@ async def create_holding(data: HoldingCreate):
 async def update_holding(item_id: int, data: HoldingUpdate):
     """修改持仓"""
     item = await holding_repo.update(item_id, data)
+    if not item:
+        raise HTTPException(status_code=404, detail="持仓不存在")
+    return await _enrich_holding(item)
+
+
+@router.put("/{item_id}/ignored", response_model=HoldingOut)
+async def update_holding_ignored(item_id: int, data: HoldingIgnoreUpdate):
+    """更新持仓是否忽略盈亏统计"""
+    item = await holding_repo.set_ignored(item_id, data.ignored)
     if not item:
         raise HTTPException(status_code=404, detail="持仓不存在")
     return await _enrich_holding(item)

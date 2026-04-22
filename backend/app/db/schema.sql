@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS holdings (
 CREATE TABLE IF NOT EXISTS holding_sort_orders (
     holding_id   INTEGER PRIMARY KEY,
     sort_order   INTEGER NOT NULL,
+    ignored      INTEGER NOT NULL DEFAULT 0,
     updated_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (holding_id) REFERENCES holdings(id) ON DELETE CASCADE
 );

@@ -42,6 +42,7 @@ async def calculate_daily_metrics(
         code = h["code"]
         market = h["market"]
         quantity = h["quantity"]
+        ignored = bool(h["ignored"])
 
         today_price_data = await price_repo.get_latest_price(code)
         if not today_price_data:
@@ -60,7 +61,7 @@ async def calculate_daily_metrics(
         total_market_value += market_value_cny
 
         daily_pnl = 0.0
-        if is_trading_day:
+        if is_trading_day and not ignored:
             # 以前一条实际缓存行情作为对比基准，避免缓存停留在历史日期时把“当前价”误当成“昨日价”
             previous_price_data = await price_repo.get_previous_price(code, price_date)
             if previous_price_data:
