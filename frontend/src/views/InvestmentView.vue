@@ -3,24 +3,62 @@
     <!-- 持仓汇总 -->
     <div class="summary-card">
       <div class="summary-row">
-        <div class="summary-item">
+        <div
+          :class="['summary-item', 'summary-item-clickable', { 'summary-item-active': activeBreakdownMetric === 'marketValue' }]"
+          role="button"
+          tabindex="0"
+          @click="toggleBreakdown('marketValue')"
+          @keydown.enter="toggleBreakdown('marketValue')"
+          @keydown.space.prevent="toggleBreakdown('marketValue')"
+        >
           <div class="summary-label">持仓市值</div>
           <div class="summary-value">{{ formatMoney(holdingStore.summary.total_market_value_cny) }}</div>
         </div>
-        <div class="summary-item">
+        <div
+          :class="['summary-item', 'summary-item-clickable', { 'summary-item-active': activeBreakdownMetric === 'totalPnl' }]"
+          role="button"
+          tabindex="0"
+          @click="toggleBreakdown('totalPnl')"
+          @keydown.enter="toggleBreakdown('totalPnl')"
+          @keydown.space.prevent="toggleBreakdown('totalPnl')"
+        >
           <div class="summary-label">累计盈亏</div>
           <div :class="['summary-value', pnlColorClass(holdingStore.summary.total_pnl_cny)]">
-            {{ holdingStore.summary.total_pnl_cny > 0 ? '+' : '' }}{{ formatMoney(holdingStore.summary.total_pnl_cny) }}
+            {{ formatSignedMoney(holdingStore.summary.total_pnl_cny) }}
           </div>
         </div>
-        <div class="summary-item">
+        <div
+          :class="['summary-item', 'summary-item-clickable', { 'summary-item-active': activeBreakdownMetric === 'dailyPnl' }]"
+          role="button"
+          tabindex="0"
+          @click="toggleBreakdown('dailyPnl')"
+          @keydown.enter="toggleBreakdown('dailyPnl')"
+          @keydown.space.prevent="toggleBreakdown('dailyPnl')"
+        >
           <div class="summary-label">当日盈亏</div>
           <div :class="['summary-value', pnlColorClass(holdingStore.summary.daily_pnl_cny)]">
-            {{ holdingStore.summary.daily_pnl_cny > 0 ? '+' : '' }}{{ formatMoney(holdingStore.summary.daily_pnl_cny) }}
+            {{ formatSignedMoney(holdingStore.summary.daily_pnl_cny) }}
           </div>
         </div>
       </div>
     </div>
+
+    <transition name="breakdown-card">
+      <div v-if="activeBreakdownMetric" class="breakdown-card">
+        <div class="breakdown-grid">
+          <div
+            v-for="item in activeBreakdownItems"
+            :key="item.market"
+            class="breakdown-item"
+          >
+            <div class="breakdown-label">{{ item.label }}</div>
+            <div :class="['breakdown-value', metricPnlClass(item.value)]">
+              {{ formatMetricMoney(item.value) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- 操作栏 -->
     <div class="action-bar">
@@ -106,8 +144,44 @@ const updatingIgnored = ref(false)
 const sortMode = ref(false)
 const savingSort = ref(false)
 const sortDraft = ref<any[]>([])
+type BreakdownMetric = 'marketValue' | 'totalPnl' | 'dailyPnl'
+const activeBreakdownMetric = ref<BreakdownMetric | null>(null)
 
 const displayHoldings = computed(() => (sortMode.value ? sortDraft.value : holdingStore.holdings))
+const breakdownByMarket = computed(() => {
+  const initial = {
+    FUND: { marketValue: 0, totalPnl: 0, dailyPnl: 0 },
+    HK_STOCK: { marketValue: 0, totalPnl: 0, dailyPnl: 0 },
+    A_STOCK: { marketValue: 0, totalPnl: 0, dailyPnl: 0 },
+  }
+
+  return holdingStore.holdings.reduce<Record<string, Record<BreakdownMetric, number>>>((acc, item) => {
+    if (!acc[item.market]) {
+      acc[item.market] = { marketValue: 0, totalPnl: 0, dailyPnl: 0 }
+    }
+    acc[item.market].marketValue += Number(item.market_value_cny) || 0
+    if (item.ignored) {
+      return acc
+    }
+    acc[item.market].totalPnl += Number(item.pnl_cny) || 0
+    acc[item.market].dailyPnl += Number(item.growth_pnl_cny) || 0
+    return acc
+  }, initial)
+})
+const activeBreakdownItems = computed(() => {
+  if (!activeBreakdownMetric.value) {
+    return []
+  }
+  return marketBreakdownOrder.map((item) => ({
+    ...item,
+    value: breakdownByMarket.value[item.market]?.[activeBreakdownMetric.value!] ?? 0,
+  }))
+})
+const marketBreakdownOrder = [
+  { market: 'FUND', label: '基金' },
+  { market: 'HK_STOCK', label: '港股' },
+  { market: 'A_STOCK', label: 'A股' },
+]
 
 onMounted(() => {
   holdingStore.fetchHoldings()
@@ -116,6 +190,26 @@ onMounted(() => {
 function openEditForm(holding: any) {
   editingHolding.value = { ...holding }
   showForm.value = true
+}
+
+function toggleBreakdown(metric: BreakdownMetric) {
+  activeBreakdownMetric.value = activeBreakdownMetric.value === metric ? null : metric
+}
+
+function formatSignedMoney(value: number | null | undefined) {
+  const amount = value ?? 0
+  return `${amount > 0 ? '+' : ''}${formatMoney(amount)}`
+}
+
+function formatMetricMoney(value: number) {
+  if (activeBreakdownMetric.value === 'marketValue') {
+    return formatMoney(value)
+  }
+  return formatSignedMoney(value)
+}
+
+function metricPnlClass(value: number) {
+  return activeBreakdownMetric.value === 'marketValue' ? '' : pnlColorClass(value)
 }
 
 async function handleFormSubmit(data: any) {
@@ -258,6 +352,29 @@ async function handleToggleIgnored(holding: any) {
   text-align: center;
 }
 
+.summary-item-clickable {
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 6px 2px;
+  margin: -6px 0;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.summary-item-clickable:active {
+  background: #f2f6ff;
+  transform: scale(0.98);
+}
+
+.summary-item-clickable:focus-visible {
+  outline: 2px solid rgba(25, 137, 250, 0.35);
+  outline-offset: 2px;
+}
+
+.summary-item-active {
+  background: linear-gradient(135deg, #edf6ff 0%, #f7fbff 100%);
+  box-shadow: inset 0 0 0 1px rgba(25, 137, 250, 0.14);
+}
+
 .summary-label {
   font-size: 13px;
   color: #999;
@@ -267,6 +384,61 @@ async function handleToggleIgnored(holding: any) {
 .summary-value {
   font-size: 17px;
   font-weight: 600;
+}
+
+.breakdown-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+  border: 1px solid rgba(25, 137, 250, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(25, 137, 250, 0.08);
+  padding: 6px;
+  margin: -4px 0 12px;
+  overflow: hidden;
+}
+
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.breakdown-item {
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 10px;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.breakdown-label {
+  color: #969799;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.breakdown-value {
+  color: #323233;
+  font-size: 15px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.breakdown-card-enter-active,
+.breakdown-card-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease, max-height 0.18s ease;
+}
+
+.breakdown-card-enter-from,
+.breakdown-card-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-8px);
+}
+
+.breakdown-card-enter-to,
+.breakdown-card-leave-from {
+  opacity: 1;
+  max-height: 160px;
+  transform: translateY(0);
 }
 
 .action-bar {

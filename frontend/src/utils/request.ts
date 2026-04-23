@@ -6,7 +6,7 @@
  * - 全局错误处理
  */
 import axios from 'axios'
-import { showToast, showDialog } from 'vant'
+import { showToast } from 'vant'
 
 const request = axios.create({
   baseURL: '/api',

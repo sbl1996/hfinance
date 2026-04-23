@@ -58,7 +58,7 @@
           <span class="info-value">{{ h.latest_price ?? '--' }} {{ h.price_currency === 'HKD' ? 'HKD' : '' }}</span>
         </div>
         <div class="holding-info-row">
-          <span class="info-label">累积收益率</span>
+          <span class="info-label">累计收益率</span>
           <span :class="['info-value', pnlColorClass(h.pnl_rate)]">
             {{ h.pnl_rate !== null && h.pnl_rate !== undefined ? formatPercent(h.pnl_rate) : '--' }}
           </span>
@@ -110,7 +110,7 @@ function startLongPress(holding: any) {
   longPressTimer = window.setTimeout(() => {
     emit('enterSortMode', holding)
     longPressTimer = null
-  }, 450)
+  }, 2000)
 }
 
 function cancelLongPress() {
