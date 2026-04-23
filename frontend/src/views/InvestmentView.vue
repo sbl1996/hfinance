@@ -51,7 +51,11 @@
             :key="item.market"
             class="breakdown-item"
           >
-            <div class="breakdown-label">{{ item.label }}</div>
+            <div class="breakdown-label">
+              <span :class="['market-badge', `market-badge-${item.market.toLowerCase()}`]">
+                {{ item.label }}
+              </span>
+            </div>
             <div :class="['breakdown-value', metricPnlClass(item.value)]">
               {{ formatMetricMoney(item.value) }}
             </div>
@@ -178,8 +182,8 @@ const activeBreakdownItems = computed(() => {
   }))
 })
 const marketBreakdownOrder = [
-  { market: 'FUND', label: '基金' },
   { market: 'HK_STOCK', label: '港股' },
+  { market: 'FUND', label: '基金' },
   { market: 'A_STOCK', label: 'A股' },
 ]
 
@@ -410,9 +414,36 @@ async function handleToggleIgnored(holding: any) {
 }
 
 .breakdown-label {
-  color: #969799;
-  font-size: 12px;
+  display: flex;
+  justify-content: center;
   margin-bottom: 6px;
+}
+
+.market-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.market-badge-a_stock {
+  background: #e8f3ff;
+  color: #1f6fd6;
+}
+
+.market-badge-hk_stock {
+  background: #fff1e8;
+  color: #d46b08;
+}
+
+.market-badge-fund {
+  background: #edf8ee;
+  color: #389e0d;
 }
 
 .breakdown-value {
