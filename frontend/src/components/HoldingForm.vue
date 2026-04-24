@@ -19,6 +19,15 @@
         placeholder="持有数量"
         inputmode="decimal"
         required
+        @focus="activePriceField = 'quantity'"
+      />
+      <van-field
+        v-model="form.unit_price"
+        label="单价(CNY)"
+        type="number"
+        placeholder="按成本总额自动换算"
+        inputmode="decimal"
+        @focus="activePriceField = 'unit_price'"
       />
       <van-field
         v-model="form.cost_total_cny"
@@ -27,6 +36,7 @@
         placeholder="人民币总额"
         inputmode="decimal"
         required
+        @focus="activePriceField = 'cost_total_cny'"
       />
       <div class="form-actions">
         <van-button block type="primary" round @click="handleSubmit">确认</van-button>
@@ -110,8 +120,40 @@ const form = reactive({
   name: '',
   market: 'A股',
   quantity: '',
+  unit_price: '',
   cost_total_cny: '',
 })
+const activePriceField = ref<'quantity' | 'unit_price' | 'cost_total_cny' | null>(null)
+const syncingPriceFields = ref(false)
+
+function parsePositiveNumber(value: string) {
+  const parsed = parseFloat(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function formatInputNumber(value: number) {
+  return Number(value.toFixed(6)).toString()
+}
+
+function syncUnitPriceFromQuantity() {
+  const costTotal = parsePositiveNumber(form.cost_total_cny)
+  const quantity = parsePositiveNumber(form.quantity)
+  if (!costTotal || !quantity) {
+    form.unit_price = ''
+    return
+  }
+  form.unit_price = formatInputNumber(costTotal / quantity)
+}
+
+function syncQuantityFromUnitPrice() {
+  const costTotal = parsePositiveNumber(form.cost_total_cny)
+  const unitPrice = parsePositiveNumber(form.unit_price)
+  if (!costTotal || !unitPrice) {
+    form.quantity = ''
+    return
+  }
+  form.quantity = formatInputNumber(costTotal / unitPrice)
+}
 
 // 编辑时回填
 watch(() => props.holding, (h) => {
@@ -121,14 +163,48 @@ watch(() => props.holding, (h) => {
     form.market = marketLabels[h.market] || h.market || 'A股'
     form.quantity = String(h.quantity ?? '')
     form.cost_total_cny = String(h.cost_total_cny ?? '')
+    syncUnitPriceFromQuantity()
   } else {
     form.code = ''
     form.name = ''
     form.market = 'A股'
     form.quantity = ''
+    form.unit_price = ''
     form.cost_total_cny = ''
   }
 }, { immediate: true })
+
+watch(() => form.quantity, () => {
+  if (syncingPriceFields.value || activePriceField.value !== 'quantity') return
+  const costTotal = parsePositiveNumber(form.cost_total_cny)
+  if (!costTotal) return
+  syncingPriceFields.value = true
+  syncUnitPriceFromQuantity()
+  syncingPriceFields.value = false
+})
+
+watch(() => form.unit_price, () => {
+  if (syncingPriceFields.value || activePriceField.value !== 'unit_price') return
+  const costTotal = parsePositiveNumber(form.cost_total_cny)
+  if (!costTotal) return
+  syncingPriceFields.value = true
+  syncQuantityFromUnitPrice()
+  syncingPriceFields.value = false
+})
+
+watch(() => form.cost_total_cny, () => {
+  if (syncingPriceFields.value) return
+  const costTotal = parsePositiveNumber(form.cost_total_cny)
+  if (!costTotal) return
+
+  syncingPriceFields.value = true
+  if (activePriceField.value === 'unit_price') {
+    syncQuantityFromUnitPrice()
+  } else {
+    syncUnitPriceFromQuantity()
+  }
+  syncingPriceFields.value = false
+})
 
 function onMarketConfirm({ selectedValues }: any) {
   const val = selectedValues[0]
