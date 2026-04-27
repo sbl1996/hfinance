@@ -7,6 +7,7 @@
  */
 import axios from 'axios'
 import { showToast } from 'vant'
+import 'vant/es/toast/style'
 
 const request = axios.create({
   baseURL: '/api',
