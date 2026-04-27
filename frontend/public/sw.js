@@ -1,5 +1,5 @@
 const CACHE_NAME = 'hfinance-v1'
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.svg']
+const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon-32x32.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
