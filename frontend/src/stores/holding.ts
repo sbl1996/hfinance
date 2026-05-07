@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import request from '@/utils/request'
 import { showSuccessToast } from 'vant'
+import type { PriceHistoryResponse } from '@/types/holding'
 
 export const useHoldingStore = defineStore('holding', () => {
   const holdings = ref<any[]>([])
@@ -88,6 +89,11 @@ export const useHoldingStore = defineStore('holding', () => {
     return result
   }
 
+  async function fetchPriceHistory(id: number): Promise<PriceHistoryResponse> {
+    const data: PriceHistoryResponse = await request.get(`/holdings/${id}/price_history`)
+    return data
+  }
+
   return {
     holdings,
     summary,
@@ -105,5 +111,6 @@ export const useHoldingStore = defineStore('holding', () => {
     refreshSingle,
     invalidateFundNavCache,
     importFundHistory,
+    fetchPriceHistory,
   }
 })

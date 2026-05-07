@@ -110,7 +110,7 @@
         :holdings="displayHoldings"
         :refreshing-codes="holdingStore.refreshingCodes"
         :sort-mode="sortMode"
-        @edit="openEditForm"
+        @view="handleViewHolding"
         @refresh="handleRefreshSingle"
         @enter-sort-mode="handleEnterSortMode"
         @move-up="handleMoveUp"
@@ -134,12 +134,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { useHoldingStore } from '@/stores/holding'
 import { formatMoney, pnlColorClass } from '@/utils/format'
 import HoldingList from '@/components/HoldingList.vue'
 import HoldingForm from '@/components/HoldingForm.vue'
 
+const router = useRouter()
 const holdingStore = useHoldingStore()
 const showForm = ref(false)
 const editingHolding = ref<any>(null)
@@ -190,6 +192,10 @@ const marketBreakdownOrder = [
 onMounted(() => {
   holdingStore.fetchHoldings()
 })
+
+function handleViewHolding(holding: any) {
+  router.push(`/investment/${holding.id}`)
+}
 
 function openEditForm(holding: any) {
   editingHolding.value = { ...holding }

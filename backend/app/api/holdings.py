@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from app.models.schemas import (
     HoldingCreate, HoldingOut, HoldingUpdate, HoldingListOut,
     CurrencyType, MarketType, HoldingReorderRequest, HoldingIgnoreUpdate,
+    PriceHistoryResponse, PriceHistoryItem,
 )
 from app.repositories import holding_repo, price_repo
 from app.services.fund_history_import_service import import_fund_history
@@ -157,3 +158,80 @@ async def import_holding_history(item_id: int):
         "detail": f"已导入 {result['inserted']} 条净值记录",
         **result,
     }
+
+
+@router.get("/{item_id}/price_history", response_model=PriceHistoryResponse)
+async def get_holding_price_history(item_id: int):
+    """获取持仓标的价格历史（含收益率曲线数据）"""
+    holding = await holding_repo.get_by_id(item_id)
+    if not holding:
+        raise HTTPException(status_code=404, detail="持仓不存在")
+
+    enriched = await _enrich_holding(holding)
+
+    unit_cost = 0.0
+    if holding["quantity"] > 0:
+        unit_cost = holding["cost_total_cny"] / holding["quantity"]
+
+    raw_history = await price_repo.get_price_history(holding["code"])
+    if not raw_history:
+        return PriceHistoryResponse(
+            code=holding["code"],
+            name=holding["name"],
+            unit_cost=unit_cost,
+            market=MarketType(holding["market"]),
+            current_price=enriched.latest_price,
+            price_currency=enriched.price_currency,
+            price_date=enriched.price_date,
+            market_value_cny=enriched.market_value_cny,
+            pnl_cny=enriched.pnl_cny,
+            pnl_rate=enriched.pnl_rate,
+            growth_rate=enriched.growth_rate,
+            growth_pnl_cny=enriched.growth_pnl_cny,
+            quantity=holding["quantity"],
+            cost_total_cny=holding["cost_total_cny"],
+            history=[],
+            empty=True,
+        )
+
+    rates: dict[str, float] = {}
+    if holding["market"] == MarketType.HK_STOCK.value:
+        start_date = raw_history[0]["price_date"]
+        end_date = raw_history[-1]["price_date"]
+        rates = await price_repo.get_rates_in_range("HKDCNY", start_date, end_date)
+
+    history = []
+    for record in raw_history:
+        price = record["price"]
+        if holding["market"] == MarketType.HK_STOCK.value:
+            rate = rates.get(record["price_date"], 1.0)
+            price = price * rate
+
+        yield_rate = None
+        if unit_cost > 0:
+            yield_rate = (price - unit_cost) / unit_cost * 100
+
+        history.append(PriceHistoryItem(
+            date=record["price_date"],
+            price=round(price, 4),
+            yield_rate=round(yield_rate, 2) if yield_rate is not None else None,
+        ))
+
+    return PriceHistoryResponse(
+        code=holding["code"],
+        name=holding["name"],
+        unit_cost=round(unit_cost, 4),
+        market=MarketType(holding["market"]),
+        current_price=enriched.latest_price,
+        price_currency=enriched.price_currency,
+        price_date=enriched.price_date,
+        market_value_cny=enriched.market_value_cny,
+        pnl_cny=enriched.pnl_cny,
+        pnl_rate=enriched.pnl_rate,
+        growth_rate=enriched.growth_rate,
+        growth_pnl_cny=enriched.growth_pnl_cny,
+        quantity=holding["quantity"],
+        cost_total_cny=holding["cost_total_cny"],
+        history=history,
+        empty=False,
+    )

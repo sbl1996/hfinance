@@ -85,6 +85,28 @@ async def get_rate_by_date(pair: str, rate_date: str) -> dict | None:
     return dict(row) if row else None
 
 
+async def get_rates_in_range(pair: str, start_date: str, end_date: str) -> dict[str, float]:
+    """批量获取指定日期范围的汇率，返回 {rate_date: rate}"""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT rate_date, rate FROM exchange_rates WHERE pair = ? AND rate_date BETWEEN ? AND ?",
+        (pair, start_date, end_date),
+    )
+    rows = await cursor.fetchall()
+    return {row["rate_date"]: row["rate"] for row in rows}
+
+
+async def get_price_history(code: str) -> list[dict]:
+    """获取某标的完整价格历史，按日期升序"""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM price_cache WHERE code = ? ORDER BY price_date ASC",
+        (code,),
+    )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
 async def upsert_rate(pair: str, rate: float, rate_date: str, source: str = "akshare") -> dict:
     """写入汇率缓存"""
     db = await get_db()

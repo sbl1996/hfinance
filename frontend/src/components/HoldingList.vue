@@ -45,6 +45,11 @@
               :class="['action-refresh', { 'action-refreshing': refreshingCodes.has(h.code) }]"
               @click.stop="$emit('refresh', h)"
             />
+            <van-icon
+              name="arrow"
+              size="18"
+              class="action-enter"
+            />
           </template>
         </div>
       </div>
@@ -95,6 +100,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   edit: [holding: any]
+  view: [holding: any]
   refresh: [holding: any]
   enterSortMode: [holding: any]
   moveUp: [holding: any]
@@ -123,7 +129,7 @@ function cancelLongPress() {
 function handleItemClick(holding: any) {
   cancelLongPress()
   if (!props.sortMode) {
-    emit('edit', holding)
+    emit('view', holding)
   }
 }
 
@@ -282,6 +288,11 @@ function marketLabel(market?: string | null) {
 
 .action-refreshing {
   animation: spin 0.8s linear infinite;
+}
+
+.action-enter {
+  color: #c8c9cc;
+  cursor: pointer;
 }
 
 @keyframes spin {

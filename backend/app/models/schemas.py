@@ -168,6 +168,33 @@ class ExchangeRateOut(BaseModel):
     source: str
 
 
+# ============ 持仓走势 ============
+
+class PriceHistoryItem(BaseModel):
+    date: str
+    price: float
+    yield_rate: Optional[float] = None
+
+
+class PriceHistoryResponse(BaseModel):
+    code: str
+    name: str
+    unit_cost: float
+    market: MarketType
+    current_price: Optional[float] = None
+    price_currency: Optional[CurrencyType] = None
+    price_date: Optional[str] = None
+    market_value_cny: Optional[float] = None
+    pnl_cny: Optional[float] = None
+    pnl_rate: Optional[float] = None
+    growth_rate: Optional[float] = None
+    growth_pnl_cny: Optional[float] = None
+    quantity: float
+    cost_total_cny: float
+    history: list[PriceHistoryItem]
+    empty: bool
+
+
 # ============ 每日快照 ============
 
 # ============ Dashboard ============

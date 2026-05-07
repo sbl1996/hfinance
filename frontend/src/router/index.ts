@@ -24,6 +24,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/investment/:id',
+    name: 'HoldingDetail',
+    component: () => import('@/views/HoldingDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/accounting',
     name: 'Accounting',
     component: () => import('@/views/AccountingView.vue'),
