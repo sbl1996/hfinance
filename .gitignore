@@ -6,6 +6,7 @@ __pycache__/
 *.db
 backend/data/
 temp/
+local/
 
 # Node
 node_modules/
