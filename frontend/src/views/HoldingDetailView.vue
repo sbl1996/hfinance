@@ -285,7 +285,12 @@ function initChart() {
   chart.timeScale().fitContent()
 }
 
-function openEditForm() {
+async function openEditForm() {
+  // 确保 holdings 已加载，以获取 ignored 等字段
+  if (holdingStore.holdings.length === 0) {
+    await holdingStore.fetchHoldings()
+  }
+  const holding = holdingStore.holdings.find((h: any) => h.id === holdingId)
   editingHolding.value = data.value ? {
     id: holdingId,
     code: data.value.code,
@@ -293,6 +298,7 @@ function openEditForm() {
     market: data.value.market,
     quantity: data.value.quantity,
     cost_total_cny: data.value.cost_total_cny,
+    ignored: holding?.ignored ?? false,
   } : null
   showForm.value = true
 }
