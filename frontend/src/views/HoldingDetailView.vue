@@ -341,7 +341,7 @@ async function handleToggleIgnored(holding: any) {
   updatingIgnored.value = true
   try {
     await holdingStore.updateHoldingIgnored(holding.id, !holding.ignored)
-    await fetchData()
+    router.replace('/investment')
   } finally {
     updatingIgnored.value = false
   }
