@@ -102,7 +102,7 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
             r'- listitem \[level=1\]\s+'
             r'- StaticText "(\d+(?:\.\d+)?)"\s+'
             r'- listitem \[level=1\]\s+\s+'
-            r'- StaticText "[+-]?\d+(?:\.\d+)?[+-](\d+(?:\.\d+)?)%"'
+            r'- StaticText "[+-]?\d+(?:\.\d+)?(?:[+-]|\s*\()?(\d+(?:\.\d+)?)\)?%'
         )
         match = re.search(pattern, snap_text, re.DOTALL)
         if not match:
