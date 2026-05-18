@@ -10,11 +10,16 @@ class Settings(BaseSettings):
     """应用配置，优先从环境变量读取，未设置则使用默认值"""
 
     # ---- 数据库 ----
-    DB_PATH: str = str(Path(__file__).resolve().parent.parent.parent / "data" / "hfinance.db")
+    DB_PATH: str = str(
+        Path(__file__).resolve().parent.parent.parent / "data" / "hfinance.db"
+    )
     DB_JOURNAL_MODE: str = "DELETE"
 
     # ---- 认证 ----
-    ACCESS_PASSWORD: str = "hfinance"  # 访问密码，生产环境务必修改
+    ACCESS_PASSWORD: str = "cirno"  # 真实密码
+    GUEST_PASSWORD: str = "hfinance"  # 访客密码
+    GUEST_RATIO_MIN: float = 1.5  # 访客模式最小缩放系数
+    GUEST_RATIO_MAX: float = 6.0  # 访客模式最大缩放系数
     JWT_SECRET_KEY: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # Token 有效期 7 天

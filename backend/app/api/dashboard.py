@@ -1,21 +1,29 @@
 """Dashboard API"""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.models.schemas import (
-    DashboardOverview, DashboardDistribution, DistributionItem,
+    DashboardDistribution,
+    DashboardOverview,
+    DistributionItem,
 )
-from app.repositories import cash_repo, liability_repo, holding_repo, price_repo
+from app.repositories import cash_repo, holding_repo, liability_repo, price_repo
 from app.services.snapshot_service import calculate_daily_metrics
 
 router = APIRouter()
 
 
 @router.get("/overview", response_model=DashboardOverview)
-async def get_overview():
+async def get_overview(request: Request):
     """返回净资产、总资产、总负债、今日总盈亏、累计总盈亏"""
-    total_cash = await cash_repo.get_total_balance()
-    total_liabilities = await liability_repo.get_total_amount()
+    cash_ratio = getattr(request.state, "cash_ratio", 1.0)
+    liab_ratio = getattr(request.state, "liability_ratio", 1.0)
+
+    total_cash_real = await cash_repo.get_total_balance()
+    total_liabilities_real = await liability_repo.get_total_amount()
+
+    total_cash = total_cash_real * cash_ratio
+    total_liabilities = total_liabilities_real * liab_ratio
 
     # 计算投资市值
     holdings = await holding_repo.get_all()
@@ -56,10 +64,16 @@ async def get_overview():
 
 
 @router.get("/distribution", response_model=DashboardDistribution)
-async def get_distribution():
+async def get_distribution(request: Request):
     """返回现金/投资/负债占比数据"""
-    total_cash = await cash_repo.get_total_balance()
-    total_liabilities = await liability_repo.get_total_amount()
+    cash_ratio = getattr(request.state, "cash_ratio", 1.0)
+    liab_ratio = getattr(request.state, "liability_ratio", 1.0)
+
+    total_cash_real = await cash_repo.get_total_balance()
+    total_liabilities_real = await liability_repo.get_total_amount()
+
+    total_cash = total_cash_real * cash_ratio
+    total_liabilities = total_liabilities_real * liab_ratio
 
     holdings = await holding_repo.get_all()
     total_investment_mv = 0.0
@@ -80,8 +94,20 @@ async def get_distribution():
         total = 1  # 避免除零
 
     items = [
-        DistributionItem(name="现金", value_cny=round(total_cash, 2), percent=round(total_cash / total * 100, 2)),
-        DistributionItem(name="投资", value_cny=round(total_investment_mv, 2), percent=round(total_investment_mv / total * 100, 2)),
-        DistributionItem(name="负债", value_cny=round(total_liabilities, 2), percent=round(total_liabilities / total * 100, 2)),
+        DistributionItem(
+            name="现金",
+            value_cny=round(total_cash, 2),
+            percent=round(total_cash / total * 100, 2),
+        ),
+        DistributionItem(
+            name="投资",
+            value_cny=round(total_investment_mv, 2),
+            percent=round(total_investment_mv / total * 100, 2),
+        ),
+        DistributionItem(
+            name="负债",
+            value_cny=round(total_liabilities, 2),
+            percent=round(total_liabilities / total * 100, 2),
+        ),
     ]
     return DashboardDistribution(items=items)

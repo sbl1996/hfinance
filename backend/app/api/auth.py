@@ -12,11 +12,13 @@ router = APIRouter()
 settings = get_settings()
 
 
-def _create_token() -> str:
+def _create_token(role: str = "admin") -> str:
     """生成 JWT Token"""
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
-    payload = {"exp": expire, "sub": "hfinance_user"}
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    payload = {"exp": expire, "sub": role}
+    return jwt.encode(
+        payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    )
 
 
 def verify_token(token: str) -> bool:
@@ -31,9 +33,12 @@ def verify_token(token: str) -> bool:
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
     """验证访问密码，返回 JWT Token"""
-    if req.password != settings.ACCESS_PASSWORD:
+    if req.password == settings.ACCESS_PASSWORD:
+        token = _create_token(role="admin")
+    elif req.password == settings.GUEST_PASSWORD:
+        token = _create_token(role="guest")
+    else:
         raise HTTPException(status_code=401, detail="密码错误")
-    token = _create_token()
     return TokenResponse(token=token)
 
 

@@ -1,6 +1,13 @@
 <template>
   <router-view v-if="isLoginPage" />
   <div v-else class="app-container">
+    <van-nav-bar
+      title="HFinance"
+      right-text="退出"
+      @click-right="handleLogout"
+      :fixed="false"
+      :border="false"
+    />
     <div class="app-content">
       <router-view />
     </div>
@@ -15,11 +22,26 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { showDialog } from 'vant'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const activeTab = ref(0)
 
 const isLoginPage = computed(() => route.path === '/login')
+
+const handleLogout = () => {
+  showDialog({
+    title: '提示',
+    message: '确定要退出登录吗？',
+    showCancelButton: true,
+  }).then(() => {
+    authStore.logout()
+  }).catch(() => {
+    // on cancel
+  })
+}
 </script>
 
 <style>

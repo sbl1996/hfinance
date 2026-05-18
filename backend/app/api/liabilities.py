@@ -1,21 +1,31 @@
 """负债 API"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
-from app.models.schemas import LiabilityCreate, LiabilityOut, LiabilityUpdate, LiabilityListOut
+from app.models.schemas import (
+    LiabilityCreate,
+    LiabilityListOut,
+    LiabilityOut,
+    LiabilityUpdate,
+)
 from app.repositories import liability_repo
 
 router = APIRouter()
 
 
 @router.get("", response_model=LiabilityListOut)
-async def list_liabilities():
+async def list_liabilities(request: Request):
     """获取所有负债列表及总额"""
+    ratio = getattr(request.state, "liability_ratio", 1.0)
     items = await liability_repo.get_all()
     total = await liability_repo.get_total_amount()
+
+    for item in items:
+        item["amount_cny"] = item["amount_cny"] * ratio
+
     return LiabilityListOut(
         items=[LiabilityOut(**item) for item in items],
-        total_amount_cny=total,
+        total_amount_cny=total * ratio,
     )
 
 
