@@ -15,9 +15,6 @@
           <span class="watch-code">{{ item.code }}</span>
         </div>
         <div class="watch-actions">
-          <span :class="['watch-growth', pnlColorClass(item.growth_rate)]">
-            {{ item.growth_rate !== null && item.growth_rate !== undefined ? formatPercent(item.growth_rate) : '--' }}
-          </span>
           <van-icon
             name="replay"
             size="18"
@@ -33,14 +30,16 @@
       </div>
       <div class="watch-info">
         <div class="watch-info-row">
-          <span class="info-label">最新价</span>
+          <span class="info-label">{{ latestPriceLabel(item.price_date) }}</span>
           <span class="info-value">
             {{ item.latest_price ?? '--' }} {{ item.price_currency ?? '' }}
           </span>
         </div>
         <div class="watch-info-row">
-          <span class="info-label">日期</span>
-          <span class="info-value">{{ item.price_date ?? '--' }}</span>
+          <span class="info-label">涨跌幅</span>
+          <span :class="['info-value', pnlColorClass(item.growth_rate)]">
+            {{ item.growth_rate !== null && item.growth_rate !== undefined ? formatPercent(item.growth_rate) : '--' }}
+          </span>
         </div>
       </div>
     </div>
@@ -48,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatPercent, pnlColorClass } from '@/utils/format'
+import { formatMonthDay, formatPercent, pnlColorClass } from '@/utils/format'
 import type { WatchlistItem } from '@/types/watchlist'
 
 defineProps<{
@@ -67,6 +66,11 @@ function marketLabel(market?: string | null) {
   if (market === 'FUND') return '基金'
   if (market === 'US_STOCK') return '美股'
   return '--'
+}
+
+function latestPriceLabel(priceDate?: string | null) {
+  const monthDay = formatMonthDay(priceDate)
+  return monthDay === '--' ? '最新价' : `${monthDay}最新价`
 }
 </script>
 
@@ -146,15 +150,9 @@ function marketLabel(market?: string | null) {
 
 .watch-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   flex-shrink: 0;
-}
-
-.watch-growth {
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .watch-info {

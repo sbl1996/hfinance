@@ -24,17 +24,13 @@
             <span class="info-value">{{ data.latest_price ?? '--' }} {{ data.price_currency ?? '' }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">日期</span>
-            <span class="info-value">{{ data.price_date ?? '--' }}</span>
-          </div>
-          <div class="info-row">
             <span class="info-label">{{ growthRateLabel(data.price_date) }}</span>
             <span :class="['info-value', pnlColorClass(data.growth_rate)]">
               {{ data.growth_rate !== null ? formatPercent(data.growth_rate) : '--' }}
             </span>
           </div>
           <div class="info-row">
-            <span class="info-label">创建时间</span>
+            <span class="info-label">加入时间</span>
             <span class="info-value">{{ data.created_at }}</span>
           </div>
         </div>
@@ -102,7 +98,7 @@ function marketLabel(market?: string | null) {
 
 function growthRateLabel(priceDate?: string | null) {
   const monthDay = formatMonthDay(priceDate)
-  return monthDay === '--' ? '收益率' : `${monthDay}收益率`
+  return monthDay === '--' ? '涨跌幅' : `${monthDay}涨跌幅`
 }
 
 function supportsHistoryImport(market?: string | null) {
