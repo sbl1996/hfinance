@@ -33,7 +33,7 @@
               v-if="item.growth_rate !== null && item.growth_rate !== undefined"
               :class="['watch-growth', 'watch-growth-pill', growthPillClass(item.growth_rate)]"
             >
-              {{ formatPercent(item.growth_rate) }}
+              {{ formatSignedPercent(item.growth_rate) }}
             </span>
             <span v-else class="watch-growth watch-growth-pill watch-growth-neutral">--</span>
           </div>
@@ -91,6 +91,11 @@ function formattedPrice(price?: number | null, currency?: string | null) {
     return `${displayPrice} HKD`
   }
   return `${displayPrice}`
+}
+
+function formatSignedPercent(value: number) {
+  const formatted = formatPercent(value)
+  return value > 0 ? `+${formatted}` : formatted
 }
 </script>
 
@@ -204,7 +209,7 @@ function formattedPrice(price?: number | null, currency?: string | null) {
 }
 
 .watch-price {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: -0.02em;

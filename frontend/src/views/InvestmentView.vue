@@ -100,7 +100,7 @@
       </template>
     </div>
 
-    <div class="watch-section">
+    <div :class="['watch-section', { 'watch-section-expanded': watchlistExpanded }]">
       <button type="button" class="watch-section-header" @click="watchlistExpanded = !watchlistExpanded">
         <div class="watch-section-title">
           <span>自选列表</span>
@@ -488,25 +488,19 @@ function hasSortChanged() {
 }
 
 .watch-section {
-  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
-  border: 1px solid rgba(25, 137, 250, 0.12);
-  border-radius: 18px;
-  box-shadow: 0 10px 28px rgba(25, 137, 250, 0.08);
-  padding: 10px;
   margin-bottom: 12px;
 }
 
 .watch-section-header {
   width: 100%;
   border: none;
-  background: rgba(255, 255, 255, 0.82);
-  border-radius: 14px;
-  padding: 14px 14px 12px;
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font: inherit;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
 .watch-section-title {
@@ -531,7 +525,15 @@ function hasSortChanged() {
 
 .watch-section-body {
   margin-top: 8px;
-  padding: 2px;
+  padding: 10px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+  border: 1px solid rgba(25, 137, 250, 0.1);
+  box-shadow: 0 10px 24px rgba(25, 137, 250, 0.06);
+}
+
+.watch-section-expanded .watch-section-header {
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
 }
 
 .sort-mode-banner {
