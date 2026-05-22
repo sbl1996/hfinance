@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import request from '@/utils/request'
-import type { WatchlistCreatePayload, WatchlistItem } from '@/types/watchlist'
+import { showSuccessToast } from 'vant'
+import type { WatchlistCreatePayload, WatchlistItem, WatchlistUpdatePayload } from '@/types/watchlist'
 
 export const useWatchlistStore = defineStore('watchlist', () => {
   const items = ref<WatchlistItem[]>([])
@@ -23,6 +24,21 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     await fetchWatchlist()
   }
 
+  async function fetchWatchlistItem(id: number) {
+    const data: WatchlistItem = await request.get(`/watchlist/${id}`)
+    return data
+  }
+
+  async function updateWatchlistItem(id: number, payload: WatchlistUpdatePayload) {
+    await request.put(`/watchlist/${id}`, payload)
+    await fetchWatchlist()
+  }
+
+  async function deleteWatchlistItem(id: number) {
+    await request.delete(`/watchlist/${id}`)
+    await fetchWatchlist()
+  }
+
   async function refreshSingle(code: string, market: string) {
     refreshingCodes.value.add(code)
     try {
@@ -33,12 +49,23 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     }
   }
 
+  async function importFundHistory(id: number) {
+    const result: any = await request.post(`/watchlist/${id}/import-history`)
+    showSuccessToast(result.detail || '全量导入完成')
+    await fetchWatchlist()
+    return result
+  }
+
   return {
     items,
     loading,
     refreshingCodes,
     fetchWatchlist,
     createWatchlistItem,
+    fetchWatchlistItem,
+    updateWatchlistItem,
+    deleteWatchlistItem,
     refreshSingle,
+    importFundHistory,
   }
 })

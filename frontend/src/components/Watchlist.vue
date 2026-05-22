@@ -4,6 +4,7 @@
       v-for="item in items"
       :key="item.id"
       class="watch-item"
+      @click="emit('view', item)"
     >
       <div class="watch-header">
         <div class="header-left">
@@ -22,6 +23,11 @@
             size="18"
             :class="['action-refresh', { 'action-refreshing': refreshingCodes.has(item.code) }]"
             @click.stop="emit('refresh', item)"
+          />
+          <van-icon
+            name="arrow"
+            size="18"
+            class="action-enter"
           />
         </div>
       </div>
@@ -51,6 +57,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
+  view: [item: WatchlistItem]
   refresh: [item: WatchlistItem]
 }>()
 
@@ -174,6 +181,10 @@ function marketLabel(market?: string | null) {
 .action-refresh {
   color: #1989fa;
   cursor: pointer;
+}
+
+.action-enter {
+  color: #c8c9cc;
 }
 
 .action-refreshing {

@@ -2,8 +2,16 @@
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.schemas import WatchlistItemCreate, WatchlistItemListOut, WatchlistItemOut, CurrencyType
+from app.models.schemas import (
+    CurrencyType,
+    MarketType,
+    WatchlistItemCreate,
+    WatchlistItemListOut,
+    WatchlistItemOut,
+    WatchlistItemUpdate,
+)
 from app.repositories import price_repo, watchlist_repo
+from app.services.fund_history_import_service import import_fund_history
 
 router = APIRouter()
 
@@ -36,9 +44,46 @@ async def create_watchlist_item(data: WatchlistItemCreate):
     return await _enrich_watchlist_item(item)
 
 
+@router.get("/{item_id}", response_model=WatchlistItemOut)
+async def get_watchlist_item(item_id: int):
+    item = await watchlist_repo.get_by_id(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="观察标的不存在")
+    return await _enrich_watchlist_item(item)
+
+
+@router.put("/{item_id}", response_model=WatchlistItemOut)
+async def update_watchlist_item(item_id: int, data: WatchlistItemUpdate):
+    item = await watchlist_repo.update(item_id, data)
+    if not item:
+        raise HTTPException(status_code=404, detail="观察标的不存在")
+    return await _enrich_watchlist_item(item)
+
+
 @router.delete("/{item_id}")
 async def delete_watchlist_item(item_id: int):
     success = await watchlist_repo.delete(item_id)
     if not success:
         raise HTTPException(status_code=404, detail="观察标的不存在")
     return {"detail": "删除成功"}
+
+
+@router.post("/{item_id}/import-history")
+async def import_watchlist_history(item_id: int):
+    item = await watchlist_repo.get_by_id(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="观察标的不存在")
+    if item["market"] != MarketType.FUND.value:
+        raise HTTPException(status_code=400, detail="只有基金观察标的支持全量导入")
+
+    try:
+        result = await import_fund_history(code=item["code"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"全量导入失败: {exc}") from exc
+
+    return {
+        "detail": f"已导入 {result['inserted']} 条净值记录",
+        **result,
+    }

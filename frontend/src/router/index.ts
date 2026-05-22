@@ -31,6 +31,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/watchlist/:id',
+    name: 'WatchlistDetail',
+    component: () => import('@/views/WatchlistDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/tasks',
     name: 'FetchTasks',
     component: () => import('@/views/FetchTaskListView.vue'),

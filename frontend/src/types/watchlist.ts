@@ -22,3 +22,9 @@ export interface WatchlistCreatePayload {
   name: string
   market: WatchMarket
 }
+
+export interface WatchlistUpdatePayload {
+  code?: string
+  name?: string
+  market?: WatchMarket
+}

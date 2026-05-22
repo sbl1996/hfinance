@@ -119,6 +119,7 @@
             v-else
             :items="watchlistStore.items"
             :refreshing-codes="watchlistStore.refreshingCodes"
+            @view="handleViewWatchItem"
             @refresh="handleRefreshWatchItem"
           />
         </div>
@@ -215,6 +216,10 @@ onMounted(() => {
 
 function handleViewHolding(holding: any) {
   router.push(`/investment/${holding.id}`)
+}
+
+function handleViewWatchItem(item: any) {
+  router.push(`/watchlist/${item.id}`)
 }
 
 
