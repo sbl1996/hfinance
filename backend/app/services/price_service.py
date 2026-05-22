@@ -5,8 +5,8 @@
 
 import logging
 
-from app.repositories import holding_repo, price_repo
-from app.services.market_fetcher import fetch_a_etf, fetch_fund_nav, fetch_hk_stock, fetch_hkdcny_rate
+from app.repositories import holding_repo, price_repo, watchlist_repo
+from app.services.market_fetcher import fetch_a_etf, fetch_fund_nav, fetch_hk_stock, fetch_hkdcny_rate, fetch_us_stock
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,8 @@ async def _fetch_by_market(code: str, market: str, *, fund_force_refresh: bool =
         return fetch_a_etf(code)
     elif market == "FUND":
         return await fetch_fund_nav(code, force_refresh=fund_force_refresh)
+    elif market == "US_STOCK":
+        return fetch_us_stock(code)
     return None
 
 
@@ -78,6 +80,8 @@ async def update_all_prices() -> dict:
     返回 {"updated": int, "failed": int, "is_trading_day": bool}
     """
     holdings = await holding_repo.get_all()
+    watchlist_items = await watchlist_repo.get_all()
+    targets = _merge_refresh_targets(holdings, watchlist_items)
     updated = 0
     failed = 0
 
@@ -104,9 +108,9 @@ async def update_all_prices() -> dict:
     is_trading_day = True
     first_price_checked = False
 
-    for h in holdings:
-        code = h["code"]
-        market = h["market"]
+    for target in targets:
+        code = target["code"]
+        market = target["market"]
         result = None
 
         try:
@@ -140,3 +144,15 @@ async def update_all_prices() -> dict:
         "failed": failed,
         "is_trading_day": is_trading_day,
     }
+
+
+def _merge_refresh_targets(holdings: list[dict], watchlist_items: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for item in [*holdings, *watchlist_items]:
+        key = (item["code"], item["market"])
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append({"code": item["code"], "market": item["market"]})
+    return merged

@@ -67,12 +67,12 @@
     <!-- 操作栏 -->
     <div class="action-bar">
       <template v-if="!sortMode">
-        <van-button size="small" type="primary" icon="plus" @click="showForm = true">新增持仓</van-button>
+        <van-button size="small" type="primary" icon="plus" @click="showInvestmentForm = true">新增投资</van-button>
         <van-button
           size="small"
           icon="replay"
           :loading="holdingStore.refreshing"
-          @click="holdingStore.refreshMarket()"
+          @click="handleRefreshMarket"
         >
           刷新行情
         </van-button>
@@ -100,10 +100,35 @@
       </template>
     </div>
 
+    <div class="watch-section">
+      <button type="button" class="watch-section-header" @click="watchlistExpanded = !watchlistExpanded">
+        <div class="watch-section-title">
+          <span>观察</span>
+          <span class="watch-section-count">{{ watchlistStore.items.length }}</span>
+        </div>
+        <van-icon :name="watchlistExpanded ? 'arrow-up' : 'arrow-down'" size="16" color="#969799" />
+      </button>
+
+      <transition name="watchlist-collapse">
+        <div v-if="watchlistExpanded" class="watch-section-body">
+          <van-loading v-if="watchlistStore.loading" class="page-loading" />
+          <div v-else-if="watchlistStore.items.length === 0" class="empty-tip empty-tip-watch">
+            暂无观察标的，点击「新增投资」添加
+          </div>
+          <Watchlist
+            v-else
+            :items="watchlistStore.items"
+            :refreshing-codes="watchlistStore.refreshingCodes"
+            @refresh="handleRefreshWatchItem"
+          />
+        </div>
+      </transition>
+    </div>
+
     <!-- 持仓列表 -->
     <van-loading v-if="holdingStore.loading" class="page-loading" />
     <div v-else-if="holdingStore.holdings.length === 0" class="empty-tip">
-      暂无持仓，点击「新增持仓」添加
+      暂无持仓，点击「新增投资」添加
     </div>
     <div v-else class="holding-list">
       <HoldingList
@@ -118,16 +143,9 @@
       />
     </div>
 
-    <!-- 新增/编辑弹窗 -->
-    <HoldingForm
-      v-model:show="showForm"
-      :holding="editingHolding"
-      :importing-history="importingHistory"
-      :updating-ignored="updatingIgnored"
-      @submit="handleFormSubmit"
-      @delete="handleDelete"
-      @import-history="handleImportHistory"
-      @toggle-ignored="handleToggleIgnored"
+    <InvestmentForm
+      v-model:show="showInvestmentForm"
+      @submit="handleCreateInvestment"
     />
   </div>
 </template>
@@ -135,21 +153,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
+import { showSuccessToast, showToast } from 'vant'
 import { useHoldingStore } from '@/stores/holding'
+import { useWatchlistStore } from '@/stores/watchlist'
 import { formatMoney, pnlColorClass } from '@/utils/format'
 import HoldingList from '@/components/HoldingList.vue'
-import HoldingForm from '@/components/HoldingForm.vue'
+import Watchlist from '@/components/Watchlist.vue'
+import InvestmentForm from '@/components/InvestmentForm.vue'
 
 const router = useRouter()
 const holdingStore = useHoldingStore()
-const showForm = ref(false)
-const editingHolding = ref<any>(null)
-const importingHistory = ref(false)
-const updatingIgnored = ref(false)
+const watchlistStore = useWatchlistStore()
+const showInvestmentForm = ref(false)
 const sortMode = ref(false)
 const savingSort = ref(false)
 const sortDraft = ref<any[]>([])
+const watchlistExpanded = ref(false)
 type BreakdownMetric = 'marketValue' | 'totalPnl' | 'dailyPnl'
 const activeBreakdownMetric = ref<BreakdownMetric | null>(null)
 
@@ -191,6 +210,7 @@ const marketBreakdownOrder = [
 
 onMounted(() => {
   holdingStore.fetchHoldings()
+  watchlistStore.fetchWatchlist()
 })
 
 function handleViewHolding(holding: any) {
@@ -218,21 +238,13 @@ function metricPnlClass(value: number) {
   return activeBreakdownMetric.value === 'marketValue' ? '' : pnlColorClass(value)
 }
 
-async function handleFormSubmit(data: any) {
-  if (editingHolding.value) {
-    await holdingStore.updateHolding(editingHolding.value.id, data)
+async function handleCreateInvestment(payload: any) {
+  if (payload.type === 'WATCH') {
+    await watchlistStore.createWatchlistItem(payload.data)
   } else {
-    await holdingStore.createHolding(data)
+    await holdingStore.createHolding(payload.data)
   }
-  showForm.value = false
-  editingHolding.value = null
-}
-
-async function handleDelete(holding: any) {
-  try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除持仓「${holding.name}」？` })
-    await holdingStore.deleteHolding(holding.id)
-  } catch { /* cancelled */ }
+  showInvestmentForm.value = false
 }
 
 async function handleRefreshSingle(holding: any) {
@@ -240,6 +252,15 @@ async function handleRefreshSingle(holding: any) {
     return
   }
   await holdingStore.refreshSingle(holding.code, holding.market)
+}
+
+async function handleRefreshWatchItem(item: any) {
+  await watchlistStore.refreshSingle(item.code, item.market)
+}
+
+async function handleRefreshMarket() {
+  await holdingStore.refreshMarket()
+  await watchlistStore.fetchWatchlist()
 }
 
 async function handleInvalidateFundNavCache() {
@@ -313,26 +334,6 @@ function hasSortChanged() {
     return false
   }
   return sortDraft.value.some((item, index) => item.id !== holdingStore.holdings[index]?.id)
-}
-
-async function handleImportHistory(holding: any) {
-  importingHistory.value = true
-  try {
-    await holdingStore.importFundHistory(holding.id)
-    editingHolding.value = holdingStore.holdings.find((item) => item.id === holding.id) || editingHolding.value
-  } finally {
-    importingHistory.value = false
-  }
-}
-
-async function handleToggleIgnored(holding: any) {
-  updatingIgnored.value = true
-  try {
-    await holdingStore.updateHoldingIgnored(holding.id, !holding.ignored)
-    editingHolding.value = holdingStore.holdings.find((item) => item.id === holding.id) || editingHolding.value
-  } finally {
-    updatingIgnored.value = false
-  }
 }
 </script>
 
@@ -482,6 +483,46 @@ async function handleToggleIgnored(holding: any) {
   margin-bottom: 12px;
 }
 
+.watch-section {
+  margin-bottom: 12px;
+}
+
+.watch-section-header {
+  width: 100%;
+  border: none;
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: inherit;
+}
+
+.watch-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #323233;
+}
+
+.watch-section-count {
+  min-width: 20px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f2f3f5;
+  color: #646566;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.watch-section-body {
+  margin-top: 8px;
+}
+
 .sort-mode-banner {
   color: #1989fa;
   font-size: 14px;
@@ -500,5 +541,20 @@ async function handleToggleIgnored(holding: any) {
   color: #999;
   padding: 40px 0;
   font-size: 15px;
+}
+
+.empty-tip-watch {
+  padding: 28px 0;
+}
+
+.watchlist-collapse-enter-active,
+.watchlist-collapse-leave-active {
+  transition: all 0.2s ease;
+}
+
+.watchlist-collapse-enter-from,
+.watchlist-collapse-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>

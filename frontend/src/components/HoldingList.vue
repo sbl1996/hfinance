@@ -148,6 +148,9 @@ function marketLabel(market?: string | null) {
   if (market === 'FUND') {
     return '基金'
   }
+  if (market === 'US_STOCK') {
+    return '美股'
+  }
   return '--'
 }
 </script>
@@ -215,6 +218,11 @@ function marketLabel(market?: string | null) {
 .market-badge-fund {
   background: #edf8ee;
   color: #389e0d;
+}
+
+.market-badge-us_stock {
+  background: #eef1ff;
+  color: #4458c8;
 }
 
 .market-badge-default {

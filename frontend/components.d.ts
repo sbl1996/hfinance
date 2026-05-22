@@ -17,6 +17,7 @@ declare module 'vue' {
     FetchTaskForm: typeof import('./src/components/FetchTaskForm.vue')['default']
     HoldingForm: typeof import('./src/components/HoldingForm.vue')['default']
     HoldingList: typeof import('./src/components/HoldingList.vue')['default']
+    InvestmentForm: typeof import('./src/components/InvestmentForm.vue')['default']
     LiabilityForm: typeof import('./src/components/LiabilityForm.vue')['default']
     LiabilityList: typeof import('./src/components/LiabilityList.vue')['default']
     OverviewCard: typeof import('./src/components/OverviewCard.vue')['default']
@@ -36,5 +37,6 @@ declare module 'vue' {
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
     VanTimePicker: typeof import('vant/es')['TimePicker']
+    Watchlist: typeof import('./src/components/Watchlist.vue')['default']
   }
 }

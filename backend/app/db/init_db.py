@@ -44,4 +44,38 @@ async def init_database():
             market = COALESCE(market, 'A_STOCK')
         """
     )
+    await _migrate_price_cache_currency_check(db)
     await db.commit()
+
+
+async def _migrate_price_cache_currency_check(db):
+    """重建 price_cache 以允许写入 USD 币种。"""
+    cursor = await db.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'price_cache'"
+    )
+    row = await cursor.fetchone()
+    create_sql = (row[0] if row else "") or ""
+    if "'USD'" in create_sql:
+        return
+
+    await db.executescript(
+        """
+        ALTER TABLE price_cache RENAME TO price_cache_old;
+        CREATE TABLE price_cache (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            code         TEXT    NOT NULL,
+            price        REAL    NOT NULL,
+            currency     TEXT    NOT NULL DEFAULT 'CNY' CHECK(currency IN ('CNY', 'HKD', 'USD')),
+            price_date   TEXT    NOT NULL,
+            source       TEXT    NOT NULL DEFAULT 'akshare',
+            created_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+            UNIQUE(code, price_date)
+        );
+        INSERT INTO price_cache (id, code, price, currency, price_date, source, created_at)
+        SELECT id, code, price, currency, price_date, source, created_at
+        FROM price_cache_old;
+        DROP TABLE price_cache_old;
+        CREATE INDEX IF NOT EXISTS idx_price_cache_code ON price_cache(code);
+        CREATE INDEX IF NOT EXISTS idx_price_cache_date ON price_cache(price_date);
+        """
+    )

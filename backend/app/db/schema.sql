@@ -47,11 +47,22 @@ CREATE TABLE IF NOT EXISTS price_cache (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     code         TEXT    NOT NULL,
     price        REAL    NOT NULL,
-    currency     TEXT    NOT NULL DEFAULT 'CNY' CHECK(currency IN ('CNY', 'HKD')),
+    currency     TEXT    NOT NULL DEFAULT 'CNY' CHECK(currency IN ('CNY', 'HKD', 'USD')),
     price_date   TEXT    NOT NULL,
     source       TEXT    NOT NULL DEFAULT 'akshare',
     created_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     UNIQUE(code, price_date)
+);
+
+-- 观察标的表
+CREATE TABLE IF NOT EXISTS watchlist_items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code        TEXT    NOT NULL,
+    name        TEXT    NOT NULL,
+    market      TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND', 'US_STOCK')),
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
 -- 汇率缓存表
@@ -102,6 +113,7 @@ CREATE TABLE IF NOT EXISTS fetch_task_runs (
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_price_cache_code ON price_cache(code);
 CREATE INDEX IF NOT EXISTS idx_price_cache_date ON price_cache(price_date);
+CREATE INDEX IF NOT EXISTS idx_watchlist_items_sort_order ON watchlist_items(sort_order, id);
 CREATE INDEX IF NOT EXISTS idx_holding_sort_orders_sort_order ON holding_sort_orders(sort_order);
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_pair ON exchange_rates(pair);
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates(rate_date);

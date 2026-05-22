@@ -5,6 +5,7 @@
 - 港股：agent-browser 富途网页爬取（fallback: stock_hk_hist_min_em）
 - A股/ETF：fund_etf_spot_em / stock_zh_a_spot_em
 - 场外基金：fund_open_fund_info_em
+- 美股：index_us_stock_sina（日线最新 close）
 - 汇率：fx_spot_quote
 """
 
@@ -184,6 +185,40 @@ def fetch_a_etf(code: str) -> dict | None:
         return None
     except Exception as e:
         logger.error(f"获取 A股/ETF {code} 行情失败: {e}")
+        return None
+
+
+def fetch_us_stock(code: str) -> dict | None:
+    """
+    获取美股/美股指数最新收盘价
+    :param code: 美股代码，如 "TSLA"、".NDX"
+    :return: {"price": float, "price_date": str, "currency": "USD", "growth_rate": float} 或 None
+    """
+    try:
+        symbol = str(code).strip().upper()
+        df = ak.index_us_stock_sina(symbol=symbol)
+        if df.empty:
+            logger.warning(f"美股 {symbol} 未找到行情数据")
+            return None
+
+        row = df.iloc[-1]
+        latest_price = float(row["close"])
+        price_date = str(row["date"])[:10]
+
+        growth_rate = 0.0
+        if len(df) >= 2:
+            prev_close = float(df.iloc[-2]["close"])
+            if prev_close != 0:
+                growth_rate = (latest_price - prev_close) / prev_close
+
+        return {
+            "price": latest_price,
+            "price_date": price_date,
+            "currency": "USD",
+            "growth_rate": growth_rate,
+        }
+    except Exception as e:
+        logger.error(f"获取美股 {code} 行情失败: {e}")
         return None
 
 

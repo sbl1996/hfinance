@@ -26,9 +26,17 @@ class MarketType(str, Enum):
     FUND = "FUND"
 
 
+class WatchMarketType(str, Enum):
+    A_STOCK = "A_STOCK"
+    HK_STOCK = "HK_STOCK"
+    FUND = "FUND"
+    US_STOCK = "US_STOCK"
+
+
 class CurrencyType(str, Enum):
     CNY = "CNY"
     HKD = "HKD"
+    USD = "USD"
 
 
 class FetchTaskRunStatus(str, Enum):
@@ -154,6 +162,37 @@ class HoldingReorderItem(BaseModel):
 
 class HoldingReorderRequest(BaseModel):
     items: list[HoldingReorderItem]
+
+
+# ============ 观察标的 ============
+
+class WatchlistItemCreate(BaseModel):
+    code: str
+    name: str
+    market: WatchMarketType
+
+
+class WatchlistItemUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    market: Optional[WatchMarketType] = None
+
+
+class WatchlistItemOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    market: WatchMarketType
+    latest_price: Optional[float] = None
+    price_currency: Optional[CurrencyType] = None
+    price_date: Optional[str] = None
+    growth_rate: Optional[float] = None
+    created_at: str
+    updated_at: str
+
+
+class WatchlistItemListOut(BaseModel):
+    items: list[WatchlistItemOut]
 
 
 # ============ 行情缓存 ============

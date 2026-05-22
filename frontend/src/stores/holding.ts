@@ -66,7 +66,7 @@ export const useHoldingStore = defineStore('holding', () => {
   async function refreshSingle(code: string, market: string) {
     refreshingCodes.value.add(code)
     try {
-      await request.post(`/market/refresh/${code}`, null, { params: { market } })
+      await request.post(`/market/refresh/${encodeURIComponent(code)}`, null, { params: { market } })
       await fetchHoldings()
     } finally {
       refreshingCodes.value.delete(code)
