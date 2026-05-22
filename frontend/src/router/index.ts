@@ -30,6 +30,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/tasks',
+    name: 'FetchTasks',
+    component: () => import('@/views/FetchTaskListView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/accounting',
     name: 'Accounting',
     component: () => import('@/views/AccountingView.vue'),

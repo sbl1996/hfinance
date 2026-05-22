@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, cash, liabilities, holdings, dashboard, market
+from app.api import auth, cash, liabilities, holdings, dashboard, market, fetch_tasks
 from app.core.config import get_settings
 from app.core.auth import AuthMiddleware
 from app.db.init_db import init_database
@@ -49,13 +49,14 @@ app.include_router(liabilities.router, prefix="/api/liabilities", tags=["负债"
 app.include_router(holdings.router, prefix="/api/holdings", tags=["持仓"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["总览"])
 app.include_router(market.router, prefix="/api/market", tags=["行情"])
+app.include_router(fetch_tasks.router, prefix="/api/fetch-tasks", tags=["自动拉取任务"])
 
 
 # ---- 启动/关闭事件 ----
 @app.on_event("startup")
 async def on_startup():
     await init_database()
-    start_scheduler()
+    await start_scheduler()
 
 
 @app.on_event("shutdown")

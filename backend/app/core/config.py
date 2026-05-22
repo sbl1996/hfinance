@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # ---- 定时任务 ----
     SCHEDULER_HOUR: int = 16
     SCHEDULER_MINUTE: int = 30
+    APP_TIMEZONE: str = "Asia/Shanghai"
+    FETCH_QUEUE_POLL_SECONDS: int = 5
 
     # ---- 行情抓取 ----
     MARKET_FETCH_TIMEOUT: int = 30  # 单次抓取超时秒数

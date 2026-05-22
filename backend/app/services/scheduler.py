@@ -1,48 +1,67 @@
 """
 定时任务调度 - APScheduler
-每天 16:30 自动执行 update_all_prices() + generate_daily_snapshot()
+扫描应执行的自动拉取任务，并顺序消费执行队列
 """
 
 import logging
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import get_settings
-from app.services.price_service import update_all_prices
-from app.services.snapshot_service import generate_daily_snapshot
+from app.services.fetch_task_service import consume_next_run, enqueue_due_tasks, recover_interrupted_runs
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone=ZoneInfo(settings.APP_TIMEZONE))
 
 
-async def scheduled_price_update():
-    """定时任务：更新价格 + 生成快照"""
-    logger.info("定时任务开始：更新行情数据...")
+async def scheduled_enqueue_due_tasks():
+    """扫描当前分钟应触发的任务并入队"""
     try:
-        result = await update_all_prices()
-        logger.info(f"行情更新完成: {result}")
-
-        is_trading_day = result.get("is_trading_day", True)
-        snapshot = await generate_daily_snapshot(is_trading_day=is_trading_day)
-        if snapshot:
-            logger.info(f"快照生成完成: {snapshot['snapshot_date']}")
-        else:
-            logger.info("无持仓，跳过快照生成")
-    except Exception as e:
-        logger.error(f"定时任务执行失败: {e}")
+        await enqueue_due_tasks()
+    except Exception as exc:
+        logger.error("自动拉取任务入队失败: %s", exc)
 
 
-def start_scheduler():
+async def scheduled_consume_fetch_queue():
+    """按队列顺序消费任务，严格串行"""
+    try:
+        await consume_next_run()
+    except Exception as exc:
+        logger.error("自动拉取任务消费失败: %s", exc)
+
+
+async def start_scheduler():
     """启动定时任务调度器"""
+    await recover_interrupted_runs()
+    if scheduler.running:
+        return
+
     scheduler.add_job(
-        scheduled_price_update,
+        scheduled_enqueue_due_tasks,
         "cron",
-        hour=settings.SCHEDULER_HOUR,
-        minute=settings.SCHEDULER_MINUTE,
-        id="price_update_job",
+        second=0,
+        id="fetch_task_enqueue_job",
         replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=30,
+    )
+    scheduler.add_job(
+        scheduled_consume_fetch_queue,
+        "interval",
+        seconds=settings.FETCH_QUEUE_POLL_SECONDS,
+        id="fetch_task_consume_job",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=max(settings.FETCH_QUEUE_POLL_SECONDS, 1),
     )
     scheduler.start()
-    logger.info(f"定时任务已启动：每天 {settings.SCHEDULER_HOUR}:{settings.SCHEDULER_MINUTE:02d} 执行")
+    logger.info(
+        "自动拉取调度已启动：timezone=%s enqueue=每分钟 queue_poll=%ss",
+        settings.APP_TIMEZONE,
+        settings.FETCH_QUEUE_POLL_SECONDS,
+    )

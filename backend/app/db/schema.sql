@@ -76,6 +76,40 @@ CREATE TABLE IF NOT EXISTS daily_snapshots (
     created_at          TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
+-- 自动拉取任务表
+CREATE TABLE IF NOT EXISTS fetch_tasks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    code            TEXT    NOT NULL,
+    name            TEXT    NOT NULL,
+    market          TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND')),
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    run_time        TEXT    NOT NULL,
+    weekdays_mask   INTEGER NOT NULL,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    UNIQUE(code, market, run_time, weekdays_mask)
+);
+
+-- 自动拉取任务执行记录表
+CREATE TABLE IF NOT EXISTS fetch_task_runs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id         INTEGER NOT NULL,
+    code            TEXT    NOT NULL,
+    name            TEXT    NOT NULL,
+    market          TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND')),
+    scheduled_for   TEXT    NOT NULL,
+    status          TEXT    NOT NULL CHECK(status IN ('PENDING', 'RUNNING', 'SUCCESS', 'FAILED')),
+    started_at      TEXT,
+    finished_at     TEXT,
+    error_message   TEXT,
+    price_date      TEXT,
+    price_value     REAL,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (task_id) REFERENCES fetch_tasks(id) ON DELETE CASCADE,
+    UNIQUE(task_id, scheduled_for)
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_price_cache_code ON price_cache(code);
 CREATE INDEX IF NOT EXISTS idx_price_cache_date ON price_cache(price_date);
@@ -83,3 +117,6 @@ CREATE INDEX IF NOT EXISTS idx_holding_sort_orders_sort_order ON holding_sort_or
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_pair ON exchange_rates(pair);
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates(rate_date);
 CREATE INDEX IF NOT EXISTS idx_daily_snapshots_date ON daily_snapshots(snapshot_date);
+CREATE INDEX IF NOT EXISTS idx_fetch_tasks_enabled_time ON fetch_tasks(enabled, run_time);
+CREATE INDEX IF NOT EXISTS idx_fetch_task_runs_status_scheduled ON fetch_task_runs(status, scheduled_for, id);
+CREATE INDEX IF NOT EXISTS idx_fetch_task_runs_task_scheduled ON fetch_task_runs(task_id, scheduled_for DESC, id DESC);

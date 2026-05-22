@@ -4,7 +4,6 @@
 """
 
 import logging
-from datetime import datetime
 
 from app.repositories import holding_repo, price_repo
 from app.services.market_fetcher import fetch_a_etf, fetch_fund_nav, fetch_hk_stock, fetch_hkdcny_rate
@@ -12,18 +11,18 @@ from app.services.market_fetcher import fetch_a_etf, fetch_fund_nav, fetch_hk_st
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_by_market(code: str, market: str) -> dict | None:
+async def _fetch_by_market(code: str, market: str, *, fund_force_refresh: bool = False) -> dict | None:
     """根据市场类型调用对应 fetcher"""
     if market == "HK_STOCK":
         return fetch_hk_stock(code)
     elif market == "A_STOCK":
         return fetch_a_etf(code)
     elif market == "FUND":
-        return await fetch_fund_nav(code)
+        return await fetch_fund_nav(code, force_refresh=fund_force_refresh)
     return None
 
 
-async def update_single_price(code: str, market: str) -> dict:
+async def execute_price_refresh(code: str, market: str, *, fund_force_refresh: bool = False) -> dict:
     """
     刷新单个标的的行情
     返回 {"code": str, "updated": bool, "price": float|None}
@@ -40,7 +39,7 @@ async def update_single_price(code: str, market: str) -> dict:
 
     result = None
     try:
-        result = await _fetch_by_market(code, market)
+        result = await _fetch_by_market(code, market, fund_force_refresh=fund_force_refresh)
     except Exception as e:
         logger.error(f"抓取 {code} 行情异常: {e}")
 
@@ -55,6 +54,7 @@ async def update_single_price(code: str, market: str) -> dict:
             "code": code,
             "updated": True,
             "price": result["price"],
+            "price_date": result["price_date"],
         }
     else:
         # 抓取失败，不写入缓存，保留旧数据
@@ -64,7 +64,12 @@ async def update_single_price(code: str, market: str) -> dict:
             "code": code,
             "updated": False,
             "price": old_price["price"] if old_price else None,
+            "price_date": old_price["price_date"] if old_price else None,
         }
+
+
+async def update_single_price(code: str, market: str) -> dict:
+    return await execute_price_refresh(code, market)
 
 
 async def update_all_prices() -> dict:
@@ -75,7 +80,6 @@ async def update_all_prices() -> dict:
     holdings = await holding_repo.get_all()
     updated = 0
     failed = 0
-    today = datetime.now().strftime("%Y-%m-%d")
 
     # 先更新汇率
     rate_result = fetch_hkdcny_rate()

@@ -14,6 +14,7 @@
     <van-tabbar v-model="activeTab" route>
       <van-tabbar-item to="/dashboard" icon="chart-trending-o">总览</van-tabbar-item>
       <van-tabbar-item to="/investment" icon="bar-chart-o">投资</van-tabbar-item>
+      <van-tabbar-item to="/tasks" icon="clock-o">任务</van-tabbar-item>
       <van-tabbar-item to="/accounting" icon="balance-o">记账</van-tabbar-item>
     </van-tabbar>
   </div>

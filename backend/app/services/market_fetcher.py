@@ -187,14 +187,14 @@ def fetch_a_etf(code: str) -> dict | None:
         return None
 
 
-async def fetch_fund_nav(code: str) -> dict | None:
+async def fetch_fund_nav(code: str, force_refresh: bool = False) -> dict | None:
     """
     获取场外基金净值
     :param code: 基金代码，如 "000001"
     :return: {"price": float, "price_date": str, "currency": "CNY", "growth_rate": float} 或 None
     """
     try:
-        df = _get_fund_open_fund_daily_df()
+        df = _get_fund_open_fund_daily_df(force_refresh=force_refresh)
         if df.empty:
             logger.warning(f"基金 {code} 未找到净值数据")
             return None

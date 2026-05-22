@@ -27,4 +27,21 @@ async def init_database():
         WHERE hso.holding_id IS NULL
         """
     )
+    cursor = await db.execute("PRAGMA table_info(fetch_tasks)")
+    fetch_task_columns = {row[1] for row in await cursor.fetchall()}
+    if "code" not in fetch_task_columns:
+        await db.execute("ALTER TABLE fetch_tasks ADD COLUMN code TEXT")
+    if "name" not in fetch_task_columns:
+        await db.execute("ALTER TABLE fetch_tasks ADD COLUMN name TEXT")
+    if "market" not in fetch_task_columns:
+        await db.execute("ALTER TABLE fetch_tasks ADD COLUMN market TEXT")
+    await db.execute(
+        """
+        UPDATE fetch_tasks
+        SET
+            code = COALESCE(code, ''),
+            name = COALESCE(name, ''),
+            market = COALESCE(market, 'A_STOCK')
+        """
+    )
     await db.commit()

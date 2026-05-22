@@ -31,6 +31,13 @@ class CurrencyType(str, Enum):
     HKD = "HKD"
 
 
+class FetchTaskRunStatus(str, Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+
 # ============ 现金账户 ============
 
 class CashAccountCreate(BaseModel):
@@ -215,6 +222,66 @@ class DistributionItem(BaseModel):
 
 class DashboardDistribution(BaseModel):
     items: list[DistributionItem]
+
+
+# ============ 自动拉取任务 ============
+
+class FetchTaskBase(BaseModel):
+    code: str
+    name: str
+    market: MarketType
+    enabled: bool = True
+    run_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    weekdays: list[int] = Field(min_length=1)
+
+
+class FetchTaskCreate(FetchTaskBase):
+    pass
+
+
+class FetchTaskUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    market: Optional[MarketType] = None
+    enabled: Optional[bool] = None
+    run_time: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    weekdays: Optional[list[int]] = None
+
+
+class FetchTaskToggleRequest(BaseModel):
+    enabled: bool
+
+
+class FetchTaskRunSummary(BaseModel):
+    id: int
+    scheduled_for: str
+    status: FetchTaskRunStatus
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error_message: Optional[str] = None
+    price_date: Optional[str] = None
+    price_value: Optional[float] = None
+
+
+class FetchTaskOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    market: MarketType
+    enabled: bool
+    run_time: str
+    weekdays: list[int]
+    created_at: str
+    updated_at: str
+    latest_run: Optional[FetchTaskRunSummary] = None
+
+
+class FetchTaskListOut(BaseModel):
+    items: list[FetchTaskOut]
+
+
+class FetchTaskRunsOut(BaseModel):
+    items: list[FetchTaskRunSummary]
 
 
 # ============ 认证 ============
