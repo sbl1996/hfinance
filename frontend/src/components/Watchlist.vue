@@ -197,8 +197,9 @@ function formattedPrice(price?: number | null, currency?: string | null) {
 
 .watch-quote {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
   flex-shrink: 0;
 }
 
