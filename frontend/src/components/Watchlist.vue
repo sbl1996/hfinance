@@ -212,7 +212,6 @@ function formatSignedPercent(value: number) {
   font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
-  letter-spacing: -0.02em;
 }
 
 .watch-price-positive {
