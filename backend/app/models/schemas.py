@@ -164,7 +164,7 @@ class HoldingReorderRequest(BaseModel):
     items: list[HoldingReorderItem]
 
 
-# ============ 观察标的 ============
+# ============ 自选标的 ============
 
 class WatchlistItemCreate(BaseModel):
     code: str

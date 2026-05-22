@@ -103,7 +103,7 @@
     <div class="watch-section">
       <button type="button" class="watch-section-header" @click="watchlistExpanded = !watchlistExpanded">
         <div class="watch-section-title">
-          <span>观察</span>
+          <span>自选</span>
           <span class="watch-section-count">{{ watchlistStore.items.length }}</span>
         </div>
         <van-icon :name="watchlistExpanded ? 'arrow-up' : 'arrow-down'" size="16" color="#969799" />
@@ -113,7 +113,7 @@
         <div v-if="watchlistExpanded" class="watch-section-body">
           <van-loading v-if="watchlistStore.loading" class="page-loading" />
           <div v-else-if="watchlistStore.items.length === 0" class="empty-tip empty-tip-watch">
-            暂无观察标的，点击「新增投资」添加
+            暂无自选，点击「新增投资」添加
           </div>
           <Watchlist
             v-else

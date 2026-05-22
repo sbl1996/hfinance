@@ -41,9 +41,9 @@
       </div>
 
       <div class="action-bar">
-        <van-button block round type="primary" @click="openEditForm">编辑观察标的</van-button>
+        <van-button block round type="primary" @click="openEditForm">编辑自选</van-button>
         <van-button
-          v-if="data.market === 'FUND'"
+          v-if="supportsHistoryImport(data.market)"
           block
           round
           plain
@@ -53,7 +53,7 @@
         >
           全量导入净值
         </van-button>
-        <van-button block round plain type="danger" @click="handleDelete">删除观察标的</van-button>
+        <van-button block round plain type="danger" @click="handleDelete">删除自选</van-button>
       </div>
     </template>
 
@@ -90,7 +90,7 @@ const showForm = ref(false)
 const editingItem = ref<WatchlistItem | null>(null)
 const importingHistory = ref(false)
 
-const pageTitle = computed(() => data.value?.name ?? '观察标的详情')
+const pageTitle = computed(() => data.value?.name ?? '自选详情')
 
 function marketLabel(market?: string | null) {
   if (market === 'A_STOCK') return 'A股'
@@ -103,6 +103,10 @@ function marketLabel(market?: string | null) {
 function growthRateLabel(priceDate?: string | null) {
   const monthDay = formatMonthDay(priceDate)
   return monthDay === '--' ? '收益率' : `${monthDay}收益率`
+}
+
+function supportsHistoryImport(market?: string | null) {
+  return market === 'FUND' || market === 'US_STOCK'
 }
 
 async function fetchData() {
@@ -131,7 +135,7 @@ async function handleFormSubmit(formData: { code: string; name: string; market: 
 
 async function handleDelete() {
   try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除观察标的「${data.value?.name}」？` })
+    await showConfirmDialog({ title: '确认删除', message: `确定删除自选「${data.value?.name}」？` })
     await watchlistStore.deleteWatchlistItem(watchlistId)
     router.back()
   } catch { /* cancelled */ }
@@ -139,7 +143,7 @@ async function handleDelete() {
 
 async function handleDeleteFromForm(item: WatchlistItem) {
   try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除观察标的「${item.name}」？` })
+    await showConfirmDialog({ title: '确认删除', message: `确定删除自选「${item.name}」？` })
     await watchlistStore.deleteWatchlistItem(item.id)
     showForm.value = false
     router.back()

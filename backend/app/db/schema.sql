@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS price_cache (
     UNIQUE(code, price_date)
 );
 
--- 观察标的表
+-- 自选标的表
 CREATE TABLE IF NOT EXISTS watchlist_items (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     code        TEXT    NOT NULL,

@@ -1,4 +1,4 @@
-"""观察标的 API"""
+"""自选标的 API"""
 
 from fastapi import APIRouter, HTTPException
 
@@ -11,7 +11,7 @@ from app.models.schemas import (
     WatchlistItemUpdate,
 )
 from app.repositories import price_repo, watchlist_repo
-from app.services.fund_history_import_service import import_fund_history
+from app.services.fund_history_import_service import import_fund_history, import_us_stock_history
 
 router = APIRouter()
 
@@ -48,7 +48,7 @@ async def create_watchlist_item(data: WatchlistItemCreate):
 async def get_watchlist_item(item_id: int):
     item = await watchlist_repo.get_by_id(item_id)
     if not item:
-        raise HTTPException(status_code=404, detail="观察标的不存在")
+        raise HTTPException(status_code=404, detail="自选标的不存在")
     return await _enrich_watchlist_item(item)
 
 
@@ -56,7 +56,7 @@ async def get_watchlist_item(item_id: int):
 async def update_watchlist_item(item_id: int, data: WatchlistItemUpdate):
     item = await watchlist_repo.update(item_id, data)
     if not item:
-        raise HTTPException(status_code=404, detail="观察标的不存在")
+        raise HTTPException(status_code=404, detail="自选标的不存在")
     return await _enrich_watchlist_item(item)
 
 
@@ -64,7 +64,7 @@ async def update_watchlist_item(item_id: int, data: WatchlistItemUpdate):
 async def delete_watchlist_item(item_id: int):
     success = await watchlist_repo.delete(item_id)
     if not success:
-        raise HTTPException(status_code=404, detail="观察标的不存在")
+        raise HTTPException(status_code=404, detail="自选标的不存在")
     return {"detail": "删除成功"}
 
 
@@ -72,12 +72,15 @@ async def delete_watchlist_item(item_id: int):
 async def import_watchlist_history(item_id: int):
     item = await watchlist_repo.get_by_id(item_id)
     if not item:
-        raise HTTPException(status_code=404, detail="观察标的不存在")
-    if item["market"] != MarketType.FUND.value:
-        raise HTTPException(status_code=400, detail="只有基金观察标的支持全量导入")
+        raise HTTPException(status_code=404, detail="自选标的不存在")
 
     try:
-        result = await import_fund_history(code=item["code"])
+        if item["market"] == MarketType.FUND.value:
+            result = await import_fund_history(code=item["code"])
+        elif item["market"] == "US_STOCK":
+            result = await import_us_stock_history(code=item["code"])
+        else:
+            raise HTTPException(status_code=400, detail="只有基金和美股自选标的支持全量导入")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

@@ -1,7 +1,7 @@
 <template>
   <van-popup v-model:show="visible" position="bottom" round :style="{ maxHeight: '80vh' }">
     <div class="form-container">
-      <h3 class="form-title">{{ item ? '编辑观察标的' : '新增观察标的' }}</h3>
+      <h3 class="form-title">{{ item ? '编辑自选' : '新增自选' }}</h3>
       <van-field v-model="form.code" label="代码" placeholder="如 510300、00700、TSLA" required />
       <van-field v-model="form.name" label="名称" placeholder="标的名称" required />
       <van-field
@@ -35,7 +35,7 @@
           class="delete-btn"
           @click="handleDelete"
         >
-          删除观察标的
+          删除自选
         </van-button>
       </div>
     </div>
@@ -91,7 +91,7 @@ const form = reactive({
   market: 'A股',
 })
 
-const isFundItem = computed(() => props.item?.market === 'FUND')
+const isFundItem = computed(() => props.item?.market === 'FUND' || props.item?.market === 'US_STOCK')
 const importingHistory = computed(() => Boolean(props.importingHistory))
 
 watch(() => props.item, (item) => {
@@ -132,7 +132,7 @@ function handleSubmit() {
 async function handleDelete() {
   if (!props.item) return
   try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除观察标的「${props.item.name}」？此操作不可撤销。` })
+    await showConfirmDialog({ title: '确认删除', message: `确定删除自选「${props.item.name}」？此操作不可撤销。` })
     emit('delete', props.item)
     visible.value = false
   } catch { /* cancelled */ }

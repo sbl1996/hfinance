@@ -16,7 +16,7 @@
           :class="['type-chip', { 'type-chip-active': investmentType === 'WATCH' }]"
           @click="investmentType = 'WATCH'"
         >
-          观察
+          自选
         </button>
       </div>
 
@@ -207,7 +207,7 @@ function syncQuantityFromUnitPrice() {
 function onMarketConfirm({ selectedValues }: any) {
   const value = selectedValues[0] as WatchMarket
   if (investmentType.value === 'HOLDING' && value === 'US_STOCK') {
-    showToast('持仓暂不支持美股，请使用观察')
+    showToast('持仓暂不支持美股，请使用自选')
     showMarketPicker.value = false
     return
   }

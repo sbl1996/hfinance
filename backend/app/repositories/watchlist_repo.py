@@ -1,4 +1,4 @@
-"""观察标的 CRUD Repository"""
+"""自选标的 CRUD Repository"""
 
 from app.db.connection import get_db
 from app.models.schemas import WatchlistItemCreate, WatchlistItemUpdate
