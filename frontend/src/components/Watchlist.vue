@@ -38,13 +38,6 @@
             <span v-else class="watch-growth watch-growth-pill watch-growth-neutral">--</span>
           </div>
         </div>
-        <div class="watch-actions">
-          <van-icon
-            name="arrow"
-            size="18"
-            class="action-enter"
-          />
-        </div>
       </div>
     </div>
   </div>
@@ -90,13 +83,14 @@ function formattedPrice(price?: number | null, currency?: string | null) {
   if (price === null || price === undefined) {
     return '--'
   }
+  const displayPrice = price.toFixed(2)
   if (currency === 'USD') {
-    return `$${price}`
+    return `$${displayPrice}`
   }
   if (currency === 'HKD') {
-    return `${price} HKD`
+    return `${displayPrice} HKD`
   }
-  return `${price}`
+  return `${displayPrice}`
 }
 </script>
 
@@ -209,7 +203,7 @@ function formattedPrice(price?: number | null, currency?: string | null) {
 }
 
 .watch-price {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: -0.02em;
@@ -239,7 +233,7 @@ function formattedPrice(price?: number | null, currency?: string | null) {
   justify-content: center;
   min-width: 78px;
   padding: 6px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   line-height: 1;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
@@ -259,20 +253,9 @@ function formattedPrice(price?: number | null, currency?: string | null) {
   color: #909399;
 }
 
-.watch-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
 .action-refresh {
   color: #1989fa;
   cursor: pointer;
-}
-
-.action-enter {
-  color: #c8c9cc;
 }
 
 .action-refreshing {
