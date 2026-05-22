@@ -110,7 +110,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showConfirmDialog, showSuccessToast } from 'vant'
+import { showConfirmDialog } from 'vant'
 import { createChart, ColorType, LineStyle, AreaSeries, LineSeries } from 'lightweight-charts'
 import { useHoldingStore } from '@/stores/holding'
 import { formatMoney, formatPercent, formatMonthDay, pnlColorClass } from '@/utils/format'

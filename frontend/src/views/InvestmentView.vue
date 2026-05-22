@@ -197,10 +197,6 @@ function handleViewHolding(holding: any) {
   router.push(`/investment/${holding.id}`)
 }
 
-function openEditForm(holding: any) {
-  editingHolding.value = { ...holding }
-  showForm.value = true
-}
 
 function toggleBreakdown(metric: BreakdownMetric) {
   activeBreakdownMetric.value = activeBreakdownMetric.value === metric ? null : metric

@@ -14,6 +14,23 @@ def _now_str() -> str:
     return datetime.now(APP_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 
+async def get_active_run_for_task(task_id: int) -> dict | None:
+    db = await get_db()
+    cursor = await db.execute(
+        """
+        SELECT *
+        FROM fetch_task_runs
+        WHERE task_id = ?
+          AND status IN ('PENDING', 'RUNNING')
+        ORDER BY scheduled_for DESC, id DESC
+        LIMIT 1
+        """,
+        (task_id,),
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
 async def enqueue_task_run(task: dict, scheduled_for: str) -> bool:
     db = await get_db()
     cursor = await db.execute(
@@ -34,6 +51,31 @@ async def enqueue_task_run(task: dict, scheduled_for: str) -> bool:
     )
     await db.commit()
     return cursor.rowcount > 0
+
+
+async def enqueue_manual_task_run(task: dict, scheduled_for: str) -> dict:
+    db = await get_db()
+    now = _now_str()
+    cursor = await db.execute(
+        """
+        INSERT INTO fetch_task_runs
+            (task_id, code, name, market, scheduled_for, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?)
+        RETURNING *
+        """,
+        (
+            task["id"],
+            task["code"],
+            task["name"],
+            task["market"],
+            scheduled_for,
+            now,
+            now,
+        ),
+    )
+    row = await cursor.fetchone()
+    await db.commit()
+    return dict(row)
 
 
 async def claim_next_pending_run() -> dict | None:

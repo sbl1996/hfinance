@@ -3,46 +3,82 @@
     <div class="task-form">
       <div class="task-form-title">{{ task ? '编辑任务' : '新建任务' }}</div>
 
-      <div class="task-form-section">
-        <label class="task-form-label">拉取标的</label>
-        <select v-model="selectedCode" class="task-form-select" @change="handleHoldingChange">
-          <option disabled value="">请选择标的</option>
-          <option v-for="holding in holdings" :key="holding.id" :value="holding.code">
-            {{ holding.name }} ({{ holding.code }})
-          </option>
-        </select>
-      </div>
+      <div class="form-content">
+        <!-- Vant Field form list -->
+        <van-cell-group :border="false" class="form-group">
+          <!-- 拉取标的 Picker -->
+          <van-field
+            v-model="selectedHoldingLabel"
+            is-link
+            readonly
+            label="拉取标的"
+            placeholder="请选择拉取标的"
+            label-class="form-label-text"
+            input-align="right"
+            @click="showPicker = true"
+          />
 
-      <div class="task-form-section">
-        <label class="task-form-label">拉取时间</label>
-        <input v-model="runTime" class="task-form-time" type="time" />
-      </div>
+          <!-- 拉取时间 Picker -->
+          <van-field
+            v-model="runTime"
+            is-link
+            readonly
+            label="拉取时间"
+            placeholder="请选择拉取时间"
+            label-class="form-label-text"
+            input-align="right"
+            @click="showTimePicker = true"
+          />
+        </van-cell-group>
 
-      <div class="task-form-section">
-        <label class="task-form-label">重复频率</label>
-        <div class="weekday-grid">
-          <button
-            v-for="day in weekdayOptions"
-            :key="day.value"
-            type="button"
-            :class="['weekday-chip', { 'weekday-chip-active': weekdays.includes(day.value) }]"
-            @click="toggleWeekday(day.value)"
-          >
-            {{ day.label }}
-          </button>
+        <!-- 重复频率 -->
+        <div class="task-form-section">
+          <label class="task-form-label">重复频率</label>
+          <div class="weekday-grid">
+            <button
+              v-for="day in weekdayOptions"
+              :key="day.value"
+              type="button"
+              :class="['weekday-chip', { 'weekday-chip-active': weekdays.includes(day.value) }]"
+              @click="toggleWeekday(day.value)"
+            >
+              {{ day.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 启用任务 -->
+        <div class="task-form-section task-form-switch">
+          <span class="task-form-label-switch">启用任务</span>
+          <van-switch v-model="enabled" size="22px" />
         </div>
       </div>
 
-      <div class="task-form-section task-form-switch">
-        <span class="task-form-label">启用任务</span>
-        <van-switch v-model="enabled" size="22px" />
-      </div>
-
       <div class="task-form-actions">
-        <van-button block plain @click="emit('update:show', false)">取消</van-button>
-        <van-button block type="primary" @click="handleSubmit">保存</van-button>
+        <van-button block plain round @click="emit('update:show', false)">取消</van-button>
+        <van-button block type="primary" round @click="handleSubmit">保存</van-button>
       </div>
     </div>
+
+    <!-- 标的选择弹窗 -->
+    <van-popup :show="showPicker" position="bottom" round @update:show="showPicker = $event">
+      <van-picker
+        :columns="pickerColumns"
+        title="选择标的"
+        @confirm="onPickerConfirm"
+        @cancel="showPicker = false"
+      />
+    </van-popup>
+
+    <!-- 时间选择弹窗 -->
+    <van-popup :show="showTimePicker" position="bottom" round @update:show="showTimePicker = $event">
+      <van-time-picker
+        v-model="timeValue"
+        title="选择时间"
+        @confirm="onTimeConfirm"
+        @cancel="showTimePicker = false"
+      />
+    </van-popup>
   </van-popup>
 </template>
 
@@ -69,6 +105,10 @@ const runTime = ref('19:30')
 const weekdays = ref<number[]>([0, 1, 2, 3, 4])
 const enabled = ref(true)
 
+const showPicker = ref(false)
+const showTimePicker = ref(false)
+const timeValue = ref<string[]>(['19', '30'])
+
 const weekdayOptions = [
   { value: 0, label: '一' },
   { value: 1, label: '二' },
@@ -81,6 +121,18 @@ const weekdayOptions = [
 
 const holdingMap = computed(() => {
   return new Map(props.holdings.map((holding) => [holding.code, holding]))
+})
+
+const selectedHoldingLabel = computed(() => {
+  const holding = props.holdings.find((h) => h.code === selectedCode.value)
+  return holding ? `${holding.name} (${holding.code})` : ''
+})
+
+const pickerColumns = computed(() => {
+  return props.holdings.map((h) => ({
+    text: `${h.name} (${h.code})`,
+    value: h.code,
+  }))
 })
 
 watch(
@@ -107,6 +159,12 @@ watch(
   { immediate: true, deep: true },
 )
 
+watch(runTime, (val) => {
+  if (val) {
+    timeValue.value = val.split(':').slice(0, 2)
+  }
+}, { immediate: true })
+
 function handleHoldingChange() {
   const holding = holdingMap.value.get(selectedCode.value)
   if (!holding) {
@@ -114,6 +172,20 @@ function handleHoldingChange() {
   }
   selectedName.value = holding.name
   selectedMarket.value = holding.market
+}
+
+function onPickerConfirm({ selectedOptions }: any) {
+  const option = selectedOptions[0]
+  if (option) {
+    selectedCode.value = option.value
+    handleHoldingChange()
+  }
+  showPicker.value = false
+}
+
+function onTimeConfirm({ selectedValues }: any) {
+  runTime.value = selectedValues.join(':')
+  showTimePicker.value = false
 }
 
 function toggleWeekday(day: number) {
@@ -152,33 +224,46 @@ function handleSubmit() {
 <style scoped>
 .task-form {
   padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  background: #fff;
 }
 
 .task-form-title {
   font-size: 18px;
   font-weight: 700;
   margin-bottom: 16px;
+  text-align: center;
+  color: #323233;
+}
+
+.form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.form-group {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #f2f3f5;
+}
+
+.form-label-text {
+  font-weight: 500;
+  color: #646566;
 }
 
 .task-form-section {
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .task-form-label {
-  display: block;
   font-size: 13px;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.task-form-select,
-.task-form-time {
-  width: 100%;
-  border: 1px solid #dcdee0;
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: #fff;
-  font-size: 15px;
+  color: #646566;
+  font-weight: 500;
+  padding-left: 4px;
 }
 
 .weekday-grid {
@@ -188,27 +273,40 @@ function handleSubmit() {
 }
 
 .weekday-chip {
-  border: 1px solid #dcdfe6;
-  border-radius: 10px;
-  background: #fff;
+  border: 1px solid #ebedf0;
+  border-radius: 8px;
+  background: #f7f8fa;
   padding: 8px 0;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #646566;
+  transition: all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  cursor: pointer;
+}
+
+.weekday-chip:active {
+  transform: scale(0.92);
 }
 
 .weekday-chip-active {
   color: #1989fa;
   border-color: #1989fa;
-  background: rgba(25, 137, 250, 0.08);
+  background: rgba(25, 137, 250, 0.06);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(25, 137, 250, 0.1);
 }
 
 .task-form-switch {
-  display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  padding: 4px 4px;
 }
 
-.task-form-switch .task-form-label {
-  margin-bottom: 0;
+.task-form-label-switch {
+  font-size: 14px;
+  color: #646566;
+  font-weight: 500;
 }
 
 .task-form-actions {

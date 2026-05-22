@@ -65,17 +65,6 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
     UNIQUE(pair, rate_date)
 );
 
--- 每日快照表
-CREATE TABLE IF NOT EXISTS daily_snapshots (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    snapshot_date       TEXT    NOT NULL UNIQUE,
-    total_assets_cny    REAL    NOT NULL DEFAULT 0,
-    total_liabilities_cny REAL  NOT NULL DEFAULT 0,
-    net_assets_cny      REAL    NOT NULL DEFAULT 0,
-    daily_pnl_cny       REAL    NOT NULL DEFAULT 0,
-    created_at          TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
-);
-
 -- 自动拉取任务表
 CREATE TABLE IF NOT EXISTS fetch_tasks (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,7 +105,9 @@ CREATE INDEX IF NOT EXISTS idx_price_cache_date ON price_cache(price_date);
 CREATE INDEX IF NOT EXISTS idx_holding_sort_orders_sort_order ON holding_sort_orders(sort_order);
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_pair ON exchange_rates(pair);
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON exchange_rates(rate_date);
-CREATE INDEX IF NOT EXISTS idx_daily_snapshots_date ON daily_snapshots(snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_fetch_tasks_enabled_time ON fetch_tasks(enabled, run_time);
 CREATE INDEX IF NOT EXISTS idx_fetch_task_runs_status_scheduled ON fetch_task_runs(status, scheduled_for, id);
 CREATE INDEX IF NOT EXISTS idx_fetch_task_runs_task_scheduled ON fetch_task_runs(task_id, scheduled_for DESC, id DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fetch_task_runs_one_active
+ON fetch_task_runs(task_id)
+WHERE status IN ('PENDING', 'RUNNING');

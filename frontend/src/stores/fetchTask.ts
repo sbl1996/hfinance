@@ -39,6 +39,12 @@ export const useFetchTaskStore = defineStore('fetchTask', () => {
     await fetchTasks()
   }
 
+  async function runNow(taskId: number) {
+    const run: FetchTaskRunSummary = await request.post(`/fetch-tasks/${taskId}/run-now`)
+    await fetchTasks()
+    return run
+  }
+
   async function fetchRuns(taskId: number, limit = 20) {
     runsLoading.value = true
     try {
@@ -60,6 +66,7 @@ export const useFetchTaskStore = defineStore('fetchTask', () => {
     updateTask,
     deleteTask,
     toggleTask,
+    runNow,
     fetchRuns,
   }
 })

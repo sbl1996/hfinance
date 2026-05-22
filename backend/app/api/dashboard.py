@@ -8,7 +8,7 @@ from app.models.schemas import (
     DistributionItem,
 )
 from app.repositories import cash_repo, holding_repo, liability_repo, price_repo
-from app.services.snapshot_service import calculate_daily_metrics
+from app.services.daily_metrics_service import calculate_daily_metrics
 
 router = APIRouter()
 

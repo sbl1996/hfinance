@@ -14,6 +14,14 @@ settings = get_settings()
 APP_TZ = ZoneInfo(settings.APP_TIMEZONE)
 
 
+class ActiveFetchTaskRunError(Exception):
+    """Raised when a task already has a pending or running run."""
+
+    def __init__(self, active_run: dict):
+        self.active_run = active_run
+        super().__init__("任务已在排队或执行中，请勿重复提交")
+
+
 async def enqueue_due_tasks(now: datetime | None = None) -> dict:
     current = now or datetime.now(APP_TZ)
     scheduled_for = current.replace(second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
@@ -25,6 +33,19 @@ async def enqueue_due_tasks(now: datetime | None = None) -> dict:
     if inserted:
         logger.info("已入队 %s 条自动拉取任务 @ %s", inserted, scheduled_for)
     return {"scheduled_for": scheduled_for, "matched": len(due_tasks), "enqueued": inserted}
+
+
+async def enqueue_manual_run(task_id: int) -> dict | None:
+    task = await fetch_task_repo.get_by_id(task_id)
+    if not task:
+        return None
+
+    active_run = await fetch_task_run_repo.get_active_run_for_task(task_id)
+    if active_run:
+        raise ActiveFetchTaskRunError(active_run)
+
+    scheduled_for = datetime.now(APP_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    return await fetch_task_run_repo.enqueue_manual_task_run(task, scheduled_for)
 
 
 async def consume_next_run() -> dict | None:

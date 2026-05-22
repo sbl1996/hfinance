@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { isGuestToken } from '@/utils/auth'
 
 const routes = [
   {
@@ -33,7 +34,13 @@ const routes = [
     path: '/tasks',
     name: 'FetchTasks',
     component: () => import('@/views/FetchTaskListView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, adminOnly: true },
+  },
+  {
+    path: '/tasks/:id',
+    name: 'FetchTaskDetail',
+    component: () => import('@/views/FetchTaskDetailView.vue'),
+    meta: { requiresAuth: true, adminOnly: true },
   },
   {
     path: '/accounting',
@@ -54,6 +61,8 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth !== false && !token) {
     next({ name: 'Login' })
   } else if (to.name === 'Login' && token) {
+    next({ name: 'Dashboard' })
+  } else if (to.meta.adminOnly && isGuestToken(token)) {
     next({ name: 'Dashboard' })
   } else {
     next()

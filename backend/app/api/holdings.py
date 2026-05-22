@@ -9,7 +9,7 @@ from app.models.schemas import (
 )
 from app.repositories import holding_repo, price_repo
 from app.services.fund_history_import_service import import_fund_history
-from app.services.snapshot_service import calculate_daily_metrics
+from app.services.daily_metrics_service import calculate_daily_metrics
 
 router = APIRouter()
 

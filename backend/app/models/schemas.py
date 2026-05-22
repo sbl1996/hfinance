@@ -201,9 +201,6 @@ class PriceHistoryResponse(BaseModel):
     history: list[PriceHistoryItem]
     empty: bool
 
-
-# ============ 每日快照 ============
-
 # ============ Dashboard ============
 
 class DashboardOverview(BaseModel):

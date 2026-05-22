@@ -46,7 +46,7 @@ async def calculate_daily_metrics(
 
         today_price_data = await price_repo.get_latest_price(code)
         if not today_price_data:
-            logger.warning(f"标的 {code} 无价格缓存，跳过日盈亏计算")
+            logger.warning("标的 %s 无价格缓存，跳过日盈亏计算", code)
             continue
 
         today_price = today_price_data["price"]
@@ -66,7 +66,7 @@ async def calculate_daily_metrics(
             previous_price_data = await price_repo.get_previous_price(code, price_date)
             if previous_price_data:
                 previous_price = previous_price_data["price"]
-                # ⚠️ Limitation: 使用今日持仓数量，当日内调仓会导致偏差
+                # 使用今日持仓数量，当日内调仓会导致偏差
                 if market == "HK_STOCK":
                     daily_pnl = (today_price - previous_price) * quantity * hkdcny_rate
                 else:

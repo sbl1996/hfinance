@@ -3,6 +3,13 @@
     <div class="task-toolbar">
       <div>
         <div class="task-title">自动拉取任务</div>
+        <div class="task-stats">
+          共 <span class="stat-num">{{ taskStore.tasks.length }}</span> 个任务
+          <span class="stat-divider">·</span>
+          已启用 <span class="stat-num enabled">{{ taskStore.tasks.filter(t => t.enabled).length }}</span> 个
+          <span class="stat-divider">·</span>
+          最近失败 <span class="stat-num failed">{{ taskStore.tasks.filter(t => t.enabled && t.latest_run?.status === 'FAILED').length }}</span> 个
+        </div>
       </div>
       <van-button size="small" type="primary" icon="plus" @click="openCreateForm">新建</van-button>
     </div>
@@ -12,7 +19,13 @@
       暂无任务，点击右上角新建
     </div>
     <div v-else class="task-list">
-      <div v-for="task in taskStore.tasks" :key="task.id" class="task-card">
+      <!-- 点击整张卡片跳转至详情页 -->
+      <div
+        v-for="task in taskStore.tasks"
+        :key="task.id"
+        :class="['task-card', { 'task-card-disabled': !task.enabled }]"
+        @click="handleViewTask(task.id)"
+      >
         <div class="task-card-header">
           <div>
             <div class="task-card-title">
@@ -20,71 +33,56 @@
               <span class="task-card-code">{{ task.code }}</span>
             </div>
             <div class="task-card-meta">
-              {{ marketLabel(task.market) }} · {{ task.run_time }} · {{ weekdaysLabel(task.weekdays) }}
+              <span :class="['market-badge', `market-badge-${task.market.toLowerCase()}`]">
+                {{ marketLabel(task.market) }}
+              </span>
+              <span class="meta-divider">·</span>
+              <span class="meta-time"><van-icon name="clock-o" /> {{ task.run_time }}</span>
+              <span class="meta-divider">·</span>
+              <span class="meta-weekdays"><van-icon name="calendar-o" /> {{ weekdaysLabel(task.weekdays) }}</span>
             </div>
           </div>
+          <!-- @click.stop 阻止冒泡跳转 -->
           <van-switch
             :model-value="task.enabled"
             size="22px"
+            @click.stop
             @update:model-value="(value) => handleToggle(task.id, value)"
           />
         </div>
 
-        <div class="task-card-status" @click="openRuns(task)">
-          <van-icon :name="statusIcon(task.latest_run?.status)" :class="['task-status-icon', statusClass(task.latest_run?.status)]" />
+        <div :class="['task-card-status', statusBgClass(task.latest_run?.status)]">
+          <van-icon :name="statusIcon(task.latest_run?.status)" :class="['task-status-icon', statusClass(task.latest_run?.status), { 'task-icon-spin': task.latest_run?.status === 'RUNNING' }]" />
           <div class="task-status-text">
-            <div class="task-status-title">{{ statusLabel(task.latest_run?.status) }}</div>
+            <div class="task-status-title">
+              {{ statusLabel(task.latest_run?.status) }}
+              <span v-if="task.latest_run?.status === 'SUCCESS' && task.latest_run?.price_value != null" class="task-status-price">
+                (最新价: {{ task.latest_run.price_value }})
+              </span>
+            </div>
             <div class="task-status-subtitle">
               {{ task.latest_run ? `最近一次：${task.latest_run.scheduled_for}` : '尚未执行' }}
             </div>
           </div>
           <van-icon name="arrow" class="task-arrow" />
         </div>
-
-        <div class="task-card-actions">
-          <van-button size="small" plain @click="openEditForm(task)">编辑</van-button>
-          <van-button size="small" plain type="danger" @click="handleDelete(task.id, task.name)">删除</van-button>
-        </div>
       </div>
     </div>
 
+    <!-- 创建任务弹窗 -->
     <FetchTaskForm
       v-model:show="showForm"
       :task="editingTask"
       :holdings="holdingOptions"
       @submit="handleSubmit"
     />
-
-    <van-popup :show="showRuns" position="bottom" round @update:show="showRuns = $event">
-      <div class="runs-panel">
-        <div class="runs-title">{{ selectedTask?.name }} 执行记录</div>
-        <van-loading v-if="taskStore.runsLoading" class="page-loading" />
-        <div v-else-if="taskStore.currentRuns.length === 0" class="empty-tip">
-          暂无执行记录
-        </div>
-        <div v-else class="run-list">
-          <div v-for="run in taskStore.currentRuns" :key="run.id" class="run-item">
-            <div class="run-item-head">
-              <span>{{ run.scheduled_for }}</span>
-              <span :class="['run-status', statusClass(run.status)]">{{ statusLabel(run.status) }}</span>
-            </div>
-            <div class="run-item-meta">
-              {{ run.started_at || '-' }} → {{ run.finished_at || '-' }}
-            </div>
-            <div v-if="run.price_date || run.price_value != null" class="run-item-meta">
-              {{ run.price_date || '-' }} · {{ run.price_value ?? '-' }}
-            </div>
-            <div v-if="run.error_message" class="run-item-error">{{ run.error_message }}</div>
-          </div>
-        </div>
-      </div>
-    </van-popup>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { showConfirmDialog, showSuccessToast } from 'vant'
+import { useRouter } from 'vue-router'
+import { showSuccessToast } from 'vant'
 import FetchTaskForm from '@/components/FetchTaskForm.vue'
 import { useFetchTaskStore } from '@/stores/fetchTask'
 import { useHoldingStore } from '@/stores/holding'
@@ -92,11 +90,10 @@ import type { FetchTask, FetchTaskCreatePayload, FetchTaskRunStatus } from '@/ty
 
 const taskStore = useFetchTaskStore()
 const holdingStore = useHoldingStore()
+const router = useRouter()
 
 const showForm = ref(false)
 const editingTask = ref<FetchTask | null>(null)
-const showRuns = ref(false)
-const selectedTask = ref<FetchTask | null>(null)
 
 const holdingOptions = computed(() => {
   return holdingStore.holdings.map((holding) => ({
@@ -113,6 +110,10 @@ onMounted(async () => {
     taskStore.fetchTasks(),
   ])
 })
+
+function handleViewTask(taskId: number) {
+  router.push(`/tasks/${taskId}`)
+}
 
 function marketLabel(market: FetchTask['market']) {
   if (market === 'HK_STOCK') return '港股'
@@ -155,49 +156,28 @@ function statusClass(status?: FetchTaskRunStatus) {
   return 'status-idle'
 }
 
+function statusBgClass(status?: FetchTaskRunStatus) {
+  if (status === 'SUCCESS') return 'status-bg-success'
+  if (status === 'FAILED') return 'status-bg-failed'
+  if (status === 'RUNNING') return 'status-bg-running'
+  if (status === 'PENDING') return 'status-bg-pending'
+  return 'status-bg-idle'
+}
+
 function openCreateForm() {
   editingTask.value = null
   showForm.value = true
 }
 
-function openEditForm(task: FetchTask) {
-  editingTask.value = task
-  showForm.value = true
-}
-
 async function handleSubmit(payload: FetchTaskCreatePayload) {
-  if (editingTask.value) {
-    await taskStore.updateTask(editingTask.value.id, payload)
-    showSuccessToast('任务已更新')
-  } else {
-    await taskStore.createTask(payload)
-    showSuccessToast('任务已创建')
-  }
+  await taskStore.createTask(payload)
+  showSuccessToast('任务已创建')
   showForm.value = false
   editingTask.value = null
 }
 
 async function handleToggle(taskId: number, enabled: boolean) {
   await taskStore.toggleTask(taskId, enabled)
-}
-
-async function handleDelete(taskId: number, taskName: string) {
-  try {
-    await showConfirmDialog({
-      title: '确认删除',
-      message: `确定删除任务「${taskName}」？`,
-    })
-    await taskStore.deleteTask(taskId)
-    showSuccessToast('任务已删除')
-  } catch {
-    // cancelled
-  }
-}
-
-async function openRuns(task: FetchTask) {
-  selectedTask.value = task
-  showRuns.value = true
-  await taskStore.fetchRuns(task.id, 20)
 }
 </script>
 
@@ -209,72 +189,186 @@ async function openRuns(task: FetchTask) {
 .task-toolbar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
   margin-bottom: 12px;
 }
 
 .task-title {
   font-size: 20px;
   font-weight: 700;
+  color: #323233;
 }
 
-.task-subtitle {
-  color: #666;
-  font-size: 13px;
+.task-stats {
+  font-size: 11px;
+  color: #8c8c8c;
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-num {
+  font-weight: 600;
+  color: #323233;
+}
+
+.stat-num.enabled {
+  color: #1989fa;
+}
+
+.stat-num.failed {
+  color: #ee0a24;
+}
+
+.stat-divider {
+  color: #d9d9d9;
 }
 
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .task-card {
   background: #fff;
   border-radius: 14px;
   padding: 14px;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  border: 1px solid #f0f0f2;
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.task-card:active {
+  background: #f7f8fa;
+  transform: scale(0.99);
+}
+
+.task-card-disabled {
+  opacity: 0.6;
 }
 
 .task-card-header {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
 }
 
 .task-card-title {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
+  color: #323233;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .task-card-code {
-  color: #888;
+  color: #999;
   font-size: 13px;
   margin-left: 6px;
+  font-weight: 400;
 }
 
 .task-card-meta {
-  margin-top: 4px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   color: #666;
-  font-size: 13px;
+  font-size: 12px;
 }
 
+.meta-divider {
+  color: #e5e5e5;
+}
+
+.meta-time,
+.meta-weekdays {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 市场类型徽章 - 对齐投资持仓页面 */
+.market-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.market-badge-a_stock {
+  background: #e8f3ff;
+  color: #1f6fd6;
+}
+
+.market-badge-hk_stock {
+  background: #fff1e8;
+  color: #d46b08;
+}
+
+.market-badge-fund {
+  background: #edf8ee;
+  color: #389e0d;
+}
+
+/* 最近执行条 */
 .task-card-status {
   margin-top: 12px;
   border-radius: 12px;
-  background: #f7f8fa;
   padding: 10px 12px;
   display: flex;
   align-items: center;
   gap: 10px;
+  border-left: 3px solid transparent;
+  background: #f7f8fa;
+}
+
+.status-bg-success {
+  background: rgba(7, 193, 96, 0.05);
+  border-left-color: #07c160;
+}
+
+.status-bg-failed {
+  background: rgba(238, 10, 36, 0.05);
+  border-left-color: #ee0a24;
+}
+
+.status-bg-running {
+  background: rgba(25, 137, 250, 0.05);
+  border-left-color: #1989fa;
+}
+
+.status-bg-pending {
+  background: rgba(255, 151, 106, 0.05);
+  border-left-color: #ff976a;
+}
+
+.status-bg-idle {
+  background: #f7f8fa;
+  border-left-color: #969799;
 }
 
 .task-status-icon {
-  font-size: 20px;
+  font-size: 18px;
 }
+
+.status-success { color: #07c160; }
+.status-failed { color: #ee0a24; }
+.status-running { color: #1989fa; }
+.status-pending { color: #ff976a; }
+.status-idle { color: #969799; }
 
 .task-status-text {
   flex: 1;
@@ -282,99 +376,44 @@ async function openRuns(task: FetchTask) {
 }
 
 .task-status-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-status-price {
+  font-size: 11px;
+  font-weight: 500;
+  color: #389e0d;
 }
 
 .task-status-subtitle {
-  color: #666;
-  font-size: 12px;
+  color: #8c8c8c;
+  font-size: 11px;
   margin-top: 2px;
 }
 
 .task-arrow {
-  color: #999;
+  color: #c8c9cc;
+  font-size: 14px;
 }
 
-.task-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
+.task-icon-spin {
+  animation: spin 1.2s linear infinite;
 }
 
-.status-success {
-  color: #07c160;
-}
-
-.status-failed {
-  color: #ee0a24;
-}
-
-.status-running {
-  color: #1989fa;
-}
-
-.status-pending {
-  color: #ff976a;
-}
-
-.status-idle {
-  color: #969799;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .page-loading,
 .empty-tip {
   text-align: center;
-  padding: 24px 0;
-  color: #666;
-}
-
-.runs-panel {
-  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-.runs-title {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 16px;
-}
-
-.run-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.run-item {
-  background: #f7f8fa;
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.run-item-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  padding: 36px 0;
+  color: #969799;
   font-size: 14px;
-}
-
-.run-status {
-  font-weight: 600;
-}
-
-.run-item-meta {
-  margin-top: 6px;
-  color: #666;
-  font-size: 12px;
-}
-
-.run-item-error {
-  margin-top: 6px;
-  color: #ee0a24;
-  font-size: 12px;
-  word-break: break-word;
 }
 </style>
