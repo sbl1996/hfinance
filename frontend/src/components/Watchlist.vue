@@ -7,20 +7,38 @@
       @click="emit('view', item)"
     >
       <div class="watch-header">
-        <div class="header-left">
-          <span :class="['market-badge', `market-badge-${item.market?.toLowerCase?.() ?? 'default'}`]">
-            {{ marketLabel(item.market) }}
-          </span>
-          <span class="watch-name">{{ item.name }}</span>
-          <span class="watch-code">{{ item.code }}</span>
+        <div class="watch-main">
+          <div class="watch-text">
+            <div class="watch-title-row">
+              <span class="watch-name">{{ item.name }}</span>
+              <van-icon
+                name="replay"
+                size="18"
+                :class="['action-refresh', { 'action-refreshing': refreshingCodes.has(item.code) }]"
+                @click.stop="emit('refresh', item)"
+              />
+            </div>
+            <div class="watch-meta">
+              <span :class="['market-badge', `market-badge-${item.market?.toLowerCase?.() ?? 'default'}`]">
+                {{ marketLabel(item.market) }}
+              </span>
+              <span class="watch-code">{{ item.code }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="watch-side">
+          <div class="watch-quote">
+            <span :class="['watch-price', growthTextClass(item.growth_rate)]">{{ formattedPrice(item.latest_price, item.price_currency) }}</span>
+            <span
+              v-if="item.growth_rate !== null && item.growth_rate !== undefined"
+              :class="['watch-growth', 'watch-growth-pill', growthPillClass(item.growth_rate)]"
+            >
+              {{ formatPercent(item.growth_rate) }}
+            </span>
+            <span v-else class="watch-growth watch-growth-pill watch-growth-neutral">--</span>
+          </div>
         </div>
         <div class="watch-actions">
-          <van-icon
-            name="replay"
-            size="18"
-            :class="['action-refresh', { 'action-refreshing': refreshingCodes.has(item.code) }]"
-            @click.stop="emit('refresh', item)"
-          />
           <van-icon
             name="arrow"
             size="18"
@@ -28,22 +46,12 @@
           />
         </div>
       </div>
-      <div class="watch-info">
-        <span class="watch-summary">
-          <span class="info-label">{{ latestPriceLabel(item.price_date) }}</span>
-          <span class="info-value">{{ formattedPrice(item.latest_price, item.price_currency) }}</span>
-          <span v-if="item.growth_rate !== null && item.growth_rate !== undefined" :class="['info-growth', pnlColorClass(item.growth_rate)]">
-            ({{ formatPercent(item.growth_rate) }})
-          </span>
-          <span v-else class="info-growth">(--)</span>
-        </span>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { formatMonthDay, formatPercent, pnlColorClass } from '@/utils/format'
+import { formatPercent, pnlColorClass } from '@/utils/format'
 import type { WatchlistItem } from '@/types/watchlist'
 
 defineProps<{
@@ -64,9 +72,18 @@ function marketLabel(market?: string | null) {
   return '--'
 }
 
-function latestPriceLabel(priceDate?: string | null) {
-  const monthDay = formatMonthDay(priceDate)
-  return monthDay === '--' ? '最新价' : `${monthDay}最新价`
+function growthPillClass(value: number | null | undefined) {
+  if (value === null || value === undefined || value === 0) {
+    return 'watch-growth-neutral'
+  }
+  return value > 0 ? 'watch-growth-positive' : 'watch-growth-negative'
+}
+
+function growthTextClass(value: number | null | undefined) {
+  if (value === null || value === undefined || value === 0) {
+    return 'watch-price-neutral'
+  }
+  return value > 0 ? 'watch-price-positive' : 'watch-price-negative'
 }
 
 function formattedPrice(price?: number | null, currency?: string | null) {
@@ -94,30 +111,51 @@ function formattedPrice(price?: number | null, currency?: string | null) {
 .watch-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 10px;
 }
 
-.header-left {
+.watch-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   flex: 1;
   min-width: 0;
 }
 
+.watch-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.watch-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .watch-name {
-  font-size: 16px;
-  font-weight: 600;
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.watch-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .watch-code {
-  color: #969799;
-  font-size: 12px;
+  color: #b5b9c2;
+  font-size: 13px;
   flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
 
 .market-badge {
@@ -157,37 +195,75 @@ function formattedPrice(price?: number | null, currency?: string | null) {
   color: #666;
 }
 
+.watch-side {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.watch-quote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.watch-price {
+  font-size: 22px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.watch-price-positive {
+  color: #ef4444;
+}
+
+.watch-price-negative {
+  color: #16a34a;
+}
+
+.watch-price-neutral {
+  color: #333;
+}
+
+.watch-growth {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.watch-growth-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.watch-growth-positive {
+  background: linear-gradient(180deg, #ff6a63 0%, #ef4444 100%);
+  color: #fff;
+}
+
+.watch-growth-negative {
+  background: linear-gradient(180deg, #25b46b 0%, #16a34a 100%);
+  color: #fff;
+}
+
+.watch-growth-neutral {
+  background: #f2f3f5;
+  color: #909399;
+}
+
 .watch-actions {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-shrink: 0;
-}
-
-.watch-info {
-  display: flex;
-  align-items: center;
-}
-
-.watch-summary {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
-
-.info-label {
-  color: #999;
-}
-
-.info-value {
-  color: #333;
-  font-weight: 500;
-}
-
-.info-growth {
-  font-weight: 500;
 }
 
 .action-refresh {

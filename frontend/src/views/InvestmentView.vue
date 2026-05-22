@@ -488,19 +488,25 @@ function hasSortChanged() {
 }
 
 .watch-section {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+  border: 1px solid rgba(25, 137, 250, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(25, 137, 250, 0.08);
+  padding: 10px;
   margin-bottom: 12px;
 }
 
 .watch-section-header {
   width: 100%;
   border: none;
-  background: white;
-  border-radius: 12px;
-  padding: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
 .watch-section-title {
@@ -525,6 +531,7 @@ function hasSortChanged() {
 
 .watch-section-body {
   margin-top: 8px;
+  padding: 2px;
 }
 
 .sort-mode-banner {
