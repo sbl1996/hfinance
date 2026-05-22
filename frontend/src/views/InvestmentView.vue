@@ -103,8 +103,7 @@
     <div class="watch-section">
       <button type="button" class="watch-section-header" @click="watchlistExpanded = !watchlistExpanded">
         <div class="watch-section-title">
-          <span>自选</span>
-          <span class="watch-section-count">{{ watchlistStore.items.length }}</span>
+          <span>自选列表</span>
         </div>
         <van-icon :name="watchlistExpanded ? 'arrow-up' : 'arrow-down'" size="16" color="#969799" />
       </button>

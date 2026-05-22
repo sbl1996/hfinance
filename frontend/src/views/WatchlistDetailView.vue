@@ -29,7 +29,7 @@
               {{ data.growth_rate !== null ? formatPercent(data.growth_rate) : '--' }}
             </span>
           </div>
-          <div class="info-row">
+          <div class="info-row info-row-full">
             <span class="info-label">加入时间</span>
             <span class="info-value">{{ data.created_at }}</span>
           </div>
@@ -207,6 +207,10 @@ fetchData()
   justify-content: space-between;
   font-size: 13px;
   gap: 12px;
+}
+
+.info-row-full {
+  grid-column: 1 / -1;
 }
 
 .info-label {

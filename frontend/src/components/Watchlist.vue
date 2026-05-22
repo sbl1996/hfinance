@@ -29,18 +29,14 @@
         </div>
       </div>
       <div class="watch-info">
-        <div class="watch-info-row">
+        <span class="watch-summary">
           <span class="info-label">{{ latestPriceLabel(item.price_date) }}</span>
-          <span class="info-value">
-            {{ item.latest_price ?? '--' }} {{ item.price_currency ?? '' }}
+          <span class="info-value">{{ formattedPrice(item.latest_price, item.price_currency) }}</span>
+          <span v-if="item.growth_rate !== null && item.growth_rate !== undefined" :class="['info-growth', pnlColorClass(item.growth_rate)]">
+            ({{ formatPercent(item.growth_rate) }})
           </span>
-        </div>
-        <div class="watch-info-row">
-          <span class="info-label">涨跌幅</span>
-          <span :class="['info-value', pnlColorClass(item.growth_rate)]">
-            {{ item.growth_rate !== null && item.growth_rate !== undefined ? formatPercent(item.growth_rate) : '--' }}
-          </span>
-        </div>
+          <span v-else class="info-growth">(--)</span>
+        </span>
       </div>
     </div>
   </div>
@@ -71,6 +67,19 @@ function marketLabel(market?: string | null) {
 function latestPriceLabel(priceDate?: string | null) {
   const monthDay = formatMonthDay(priceDate)
   return monthDay === '--' ? '最新价' : `${monthDay}最新价`
+}
+
+function formattedPrice(price?: number | null, currency?: string | null) {
+  if (price === null || price === undefined) {
+    return '--'
+  }
+  if (currency === 'USD') {
+    return `$${price}`
+  }
+  if (currency === 'HKD') {
+    return `${price} HKD`
+  }
+  return `${price}`
 }
 </script>
 
@@ -156,14 +165,15 @@ function latestPriceLabel(priceDate?: string | null) {
 }
 
 .watch-info {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 12px;
+  display: flex;
+  align-items: center;
 }
 
-.watch-info-row {
+.watch-summary {
   display: flex;
-  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
   font-size: 13px;
 }
 
@@ -173,6 +183,10 @@ function latestPriceLabel(priceDate?: string | null) {
 
 .info-value {
   color: #333;
+  font-weight: 500;
+}
+
+.info-growth {
   font-weight: 500;
 }
 
