@@ -156,6 +156,7 @@ const taskId = Number(route.params.id)
 const showForm = ref(false)
 const runNowLoading = ref(false)
 let activeRunPollingTimer: number | undefined
+let activeRunPolling = false
 
 const task = computed(() => {
   return taskStore.tasks.find((t) => t.id === taskId)
@@ -273,24 +274,42 @@ function statusLabel(status?: FetchTaskRunStatus) {
 function startActiveRunPolling() {
   stopActiveRunPolling()
   if (!isTaskActive.value) return
+  scheduleNextActiveRunPoll()
+}
 
-  activeRunPollingTimer = window.setTimeout(async () => {
-    try {
-      await Promise.all([
-        taskStore.fetchTasks(),
-        taskStore.fetchRuns(taskId),
-      ])
-      startActiveRunPolling()
-    } catch {
-      stopActiveRunPolling()
+function scheduleNextActiveRunPoll() {
+  activeRunPollingTimer = window.setTimeout(pollActiveRun, 5000)
+}
+
+async function pollActiveRun() {
+  if (activeRunPolling) return
+  activeRunPolling = true
+
+  try {
+    await Promise.all([
+      taskStore.fetchTasks({ silent: true }),
+      taskStore.fetchRuns(taskId, 20, { silent: true }),
+    ])
+    if (isTaskActive.value) {
+      scheduleNextActiveRunPoll()
+      return
     }
-  }, 2000)
+    await Promise.all([
+      taskStore.fetchTasks(),
+      taskStore.fetchRuns(taskId),
+    ])
+  } catch {
+    stopActiveRunPolling()
+  } finally {
+    activeRunPolling = false
+  }
 }
 
 function stopActiveRunPolling() {
   if (activeRunPollingTimer == null) return
   window.clearTimeout(activeRunPollingTimer)
   activeRunPollingTimer = undefined
+  activeRunPolling = false
 }
 
 function runStatusClass(status?: FetchTaskRunStatus) {

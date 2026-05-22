@@ -9,13 +9,17 @@ export const useFetchTaskStore = defineStore('fetchTask', () => {
   const runsLoading = ref(false)
   const currentRuns = ref<FetchTaskRunSummary[]>([])
 
-  async function fetchTasks() {
-    loading.value = true
+  async function fetchTasks(options: { silent?: boolean } = {}) {
+    if (!options.silent) {
+      loading.value = true
+    }
     try {
       const data: { items: FetchTask[] } = await request.get('/fetch-tasks')
       tasks.value = data.items
     } finally {
-      loading.value = false
+      if (!options.silent) {
+        loading.value = false
+      }
     }
   }
 
@@ -45,14 +49,18 @@ export const useFetchTaskStore = defineStore('fetchTask', () => {
     return run
   }
 
-  async function fetchRuns(taskId: number, limit = 20) {
-    runsLoading.value = true
+  async function fetchRuns(taskId: number, limit = 20, options: { silent?: boolean } = {}) {
+    if (!options.silent) {
+      runsLoading.value = true
+    }
     try {
       const data: { items: FetchTaskRunSummary[] } = await request.get(`/fetch-tasks/${taskId}/runs`, { params: { limit } })
       currentRuns.value = data.items
       return data.items
     } finally {
-      runsLoading.value = false
+      if (!options.silent) {
+        runsLoading.value = false
+      }
     }
   }
 
