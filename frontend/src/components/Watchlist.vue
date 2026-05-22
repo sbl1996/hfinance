@@ -130,7 +130,7 @@ function formattedPrice(price?: number | null, currency?: string | null) {
 
 .watch-name {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.15;
   white-space: nowrap;
@@ -204,7 +204,7 @@ function formattedPrice(price?: number | null, currency?: string | null) {
 }
 
 .watch-price {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: -0.02em;
