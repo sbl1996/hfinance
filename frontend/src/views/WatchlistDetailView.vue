@@ -10,6 +10,22 @@
     <van-empty v-else-if="error" description="加载失败" />
 
     <template v-else-if="data">
+      <!-- 走势图区域 -->
+      <div class="chart-section">
+        <div ref="chartContainerRef" class="chart-container"></div>
+        <div v-if="data.empty" class="chart-empty">暂无历史数据</div>
+        <div class="range-bar">
+          <button
+            v-for="r in RANGES"
+            :key="r.key"
+            :class="['range-btn', { 'range-btn-active': activeRange === r.key }]"
+            @click="handleRangeChange(r.key)"
+          >
+            {{ r.label }}
+          </button>
+        </div>
+      </div>
+
       <div class="info-card">
         <div class="info-header">
           <span :class="['market-badge', `market-badge-${data.market?.toLowerCase?.() ?? 'default'}`]">
@@ -65,9 +81,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog } from 'vant'
+import { createChart, ColorType, AreaSeries } from 'lightweight-charts'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { formatMonthDay, formatPercent, pnlColorClass } from '@/utils/format'
 import type { WatchlistItem } from '@/types/watchlist'
@@ -80,7 +97,19 @@ const watchlistStore = useWatchlistStore()
 const watchlistId = Number(route.params.id)
 const loading = ref(true)
 const error = ref(false)
-const data = ref<WatchlistItem | null>(null)
+const data = ref<any | null>(null)
+
+const RANGES = [
+  { key: '1M', label: '1月', days: 30 },
+  { key: '3M', label: '3月', days: 90 },
+  { key: '6M', label: '6月', days: 180 },
+  { key: '1Y', label: '1年', days: 365 },
+  { key: 'ALL', label: '全部', days: Infinity },
+] as const
+
+const chartContainerRef = ref<HTMLDivElement | null>(null)
+const activeRange = ref<string>('1Y')
+let chart: ReturnType<typeof createChart> | null = null
 
 const showForm = ref(false)
 const editingItem = ref<WatchlistItem | null>(null)
@@ -105,11 +134,116 @@ function supportsHistoryImport(market?: string | null) {
   return market === 'FUND' || market === 'US_STOCK'
 }
 
+function formatDateToEST(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function handleRangeChange(key: string) {
+  activeRange.value = key
+  if (!chart || !data.value || data.value.history.length === 0) return
+
+  if (key === 'ALL') {
+    chart.timeScale().fitContent()
+    return
+  }
+
+  const range = RANGES.find((r) => r.key === key)
+  if (!range) return
+
+  const now = new Date()
+  const from = new Date(now.getTime() - range.days * 24 * 60 * 60 * 1000)
+  const fromStr = formatDateToEST(from)
+
+  const lastItem = data.value.history[data.value.history.length - 1]
+  chart.timeScale().setVisibleRange({
+    from: fromStr,
+    to: lastItem.date,
+  })
+}
+
+function initChart() {
+  if (!chartContainerRef.value || !data.value || data.value.empty) return
+
+  if (chart) {
+    chart.remove()
+    chart = null
+  }
+
+  const container = chartContainerRef.value
+  
+  // 价格货币格式化配置：如 $ 或者 HKD 等
+  const currency = data.value.price_currency
+  let priceFormat: any = { type: 'price', precision: 2 }
+  
+  if (currency === 'USD') {
+    priceFormat = {
+      type: 'custom',
+      formatter: (price: number) => `$${price.toFixed(2)}`,
+    }
+  } else if (currency === 'HKD') {
+    priceFormat = {
+      type: 'custom',
+      formatter: (price: number) => `${price.toFixed(2)} HKD`,
+    }
+  }
+
+  chart = createChart(container, {
+    layout: {
+      background: { type: ColorType.Solid, color: '#ffffff' },
+      textColor: '#999',
+      attributionLogo: false,
+    },
+    width: container.clientWidth,
+    height: 320,
+    leftPriceScale: { visible: true, borderColor: '#e5e5e5' },
+    rightPriceScale: { visible: false },
+    grid: {
+      vertLines: { color: '#f5f5f5' },
+      horzLines: { color: '#f5f5f5' },
+    },
+    timeScale: { borderColor: '#e5e5e5' },
+  })
+
+  const priceSeries = chart.addSeries(AreaSeries, {
+    priceScaleId: 'left',
+    lineColor: '#1989fa',
+    topColor: 'rgba(25, 137, 250, 0.2)',
+    bottomColor: 'rgba(25, 137, 250, 0.02)',
+    lineWidth: 2,
+    priceFormat,
+  })
+
+  const priceData = data.value.history.map((item: any) => ({
+    time: item.date,
+    value: item.price,
+  }))
+
+  priceSeries.setData(priceData)
+  chart.timeScale().fitContent()
+}
+
+watch([loading, data], async ([isLoading, newData]) => {
+  if (isLoading || !newData || newData.empty) return
+
+  await nextTick()
+  initChart()
+}, { flush: 'post' })
+
+onUnmounted(() => {
+  if (chart) {
+    chart.remove()
+    chart = null
+  }
+})
+
 async function fetchData() {
   loading.value = true
   error.value = false
   try {
-    data.value = await watchlistStore.fetchWatchlistItem(watchlistId)
+    data.value = await watchlistStore.fetchPriceHistory(watchlistId)
   } catch {
     error.value = true
   } finally {
@@ -172,9 +306,54 @@ fetchData()
   padding: 80px 0;
 }
 
+.chart-section {
+  background: white;
+  margin: 0 0 12px;
+  padding: 12px;
+  position: relative;
+}
+
+.chart-container {
+  width: 100%;
+  height: 320px;
+}
+
+.chart-empty {
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 15px;
+}
+
+.range-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.range-btn {
+  padding: 4px 14px;
+  border: 1px solid #e5e5e5;
+  border-radius: 999px;
+  background: white;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.range-btn-active {
+  background: #1989fa;
+  color: white;
+  border-color: #1989fa;
+}
+
 .info-card {
   background: white;
-  margin: 12px;
+  margin: 0 12px 12px;
   border-radius: 12px;
   padding: 16px;
 }

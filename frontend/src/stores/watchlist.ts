@@ -56,6 +56,11 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     return result
   }
 
+  async function fetchPriceHistory(id: number) {
+    const data: any = await request.get(`/watchlist/${id}/price_history`)
+    return data
+  }
+
   return {
     items,
     loading,
@@ -67,5 +72,6 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     deleteWatchlistItem,
     refreshSingle,
     importFundHistory,
+    fetchPriceHistory,
   }
 })

@@ -9,6 +9,9 @@ from app.models.schemas import (
     WatchlistItemListOut,
     WatchlistItemOut,
     WatchlistItemUpdate,
+    PriceHistoryItem,
+    WatchlistPriceHistoryResponse,
+    WatchMarketType,
 )
 from app.repositories import price_repo, watchlist_repo
 from app.services.fund_history_import_service import import_fund_history, import_us_stock_history
@@ -90,3 +93,55 @@ async def import_watchlist_history(item_id: int):
         "detail": f"已导入 {result['inserted']} 条净值记录",
         **result,
     }
+
+
+@router.get("/{item_id}/price_history", response_model=WatchlistPriceHistoryResponse)
+async def get_watchlist_price_history(item_id: int):
+    """获取自选标的价格历史"""
+    item = await watchlist_repo.get_by_id(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="自选标的不存在")
+
+    enriched = await _enrich_watchlist_item(item)
+
+    raw_history = await price_repo.get_price_history(item["code"])
+    if not raw_history:
+        return WatchlistPriceHistoryResponse(
+            id=enriched.id,
+            code=enriched.code,
+            name=enriched.name,
+            market=enriched.market,
+            latest_price=enriched.latest_price,
+            current_price=enriched.latest_price,
+            price_currency=enriched.price_currency,
+            price_date=enriched.price_date,
+            growth_rate=enriched.growth_rate,
+            created_at=enriched.created_at,
+            updated_at=enriched.updated_at,
+            history=[],
+            empty=True,
+        )
+
+    history = []
+    for record in raw_history:
+        history.append(PriceHistoryItem(
+            date=record["price_date"],
+            price=round(record["price"], 4),
+            yield_rate=None,  # 自选标的无持有成本，不计算收益率
+        ))
+
+    return WatchlistPriceHistoryResponse(
+        id=enriched.id,
+        code=enriched.code,
+        name=enriched.name,
+        market=enriched.market,
+        latest_price=enriched.latest_price,
+        current_price=enriched.latest_price,
+        price_currency=enriched.price_currency,
+        price_date=enriched.price_date,
+        growth_rate=enriched.growth_rate,
+        created_at=enriched.created_at,
+        updated_at=enriched.updated_at,
+        history=history,
+        empty=False,
+    )

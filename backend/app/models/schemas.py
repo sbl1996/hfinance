@@ -240,6 +240,23 @@ class PriceHistoryResponse(BaseModel):
     history: list[PriceHistoryItem]
     empty: bool
 
+
+class WatchlistPriceHistoryResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    market: WatchMarketType
+    latest_price: Optional[float] = None
+    current_price: Optional[float] = None
+    price_currency: Optional[CurrencyType] = None
+    price_date: Optional[str] = None
+    growth_rate: Optional[float] = None
+    created_at: str
+    updated_at: str
+    history: list[PriceHistoryItem]
+    empty: bool
+
+
 # ============ Dashboard ============
 
 class DashboardOverview(BaseModel):
