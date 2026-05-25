@@ -23,6 +23,10 @@
                 {{ marketLabel(item.market) }}
               </span>
               <span class="watch-code">{{ item.code }}</span>
+              <template v-if="item.price_date">
+                <span class="watch-meta-divider">|</span>
+                <span class="watch-date">{{ formatMonthDay(item.price_date) }}</span>
+              </template>
             </div>
           </div>
         </div>
@@ -44,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatPercent, pnlColorClass } from '@/utils/format'
+import { formatMonthDay, formatPercent } from '@/utils/format'
 import type { WatchlistItem } from '@/types/watchlist'
 
 defineProps<{
@@ -155,6 +159,17 @@ function formatSignedPercent(value: number) {
   font-size: 13px;
   flex-shrink: 0;
   letter-spacing: 0.02em;
+}
+
+.watch-meta-divider {
+  color: #e2e8f0;
+  font-size: 11px;
+  user-select: none;
+}
+
+.watch-date {
+  color: #94a3b8;
+  font-size: 13px;
 }
 
 .market-badge {

@@ -153,7 +153,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showSuccessToast, showToast } from 'vant'
+import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { useHoldingStore } from '@/stores/holding'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { formatMoney, pnlColorClass } from '@/utils/format'
