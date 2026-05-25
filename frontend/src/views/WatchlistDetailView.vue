@@ -229,18 +229,30 @@ function initChart() {
     value: item.price,
   }))
 
-  const yieldData = data.value.history
-    .filter((item: any) => item.yield_rate !== null && item.yield_rate !== undefined)
-    .map((item: any) => ({
-      time: item.date,
-      value: item.yield_rate,
-    }))
-
   priceSeries.setData(priceData)
-  if (yieldData.length > 0) {
-    yieldSeries.setData(yieldData)
+
+  function updateYieldDataForVisibleRange() {
+    if (!chart || !data.value || data.value.empty) return
+    const visibleRange = chart.timeScale().getVisibleRange()
+    if (!visibleRange || !visibleRange.from) return
+
+    const fromStr = visibleRange.from as string
+    const visiblePoints = data.value.history.filter((item: any) => item.date >= fromStr)
+
+    if (visiblePoints.length === 0) return
+
+    const basePrice = visiblePoints[0].price
+    if (basePrice && basePrice > 0) {
+      const newYieldData = data.value.history.map((item: any) => ({
+        time: item.date,
+        value: ((item.price - basePrice) / basePrice) * 100,
+      }))
+      yieldSeries.setData(newYieldData)
+    }
   }
-  chart.timeScale().fitContent()
+
+  chart.timeScale().subscribeVisibleTimeRangeChange(updateYieldDataForVisibleRange)
+  handleRangeChange(activeRange.value)
 }
 
 watch([loading, data], async ([isLoading, newData]) => {
