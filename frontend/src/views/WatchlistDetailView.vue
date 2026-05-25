@@ -84,7 +84,7 @@
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog } from 'vant'
-import { createChart, ColorType, AreaSeries } from 'lightweight-charts'
+import { createChart, ColorType, AreaSeries, LineSeries } from 'lightweight-charts'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { formatMonthDay, formatPercent, pnlColorClass } from '@/utils/format'
 import type { WatchlistItem } from '@/types/watchlist'
@@ -199,7 +199,7 @@ function initChart() {
     width: container.clientWidth,
     height: 320,
     leftPriceScale: { visible: true, borderColor: '#e5e5e5' },
-    rightPriceScale: { visible: false },
+    rightPriceScale: { visible: true, borderColor: '#e5e5e5' },
     grid: {
       vertLines: { color: '#f5f5f5' },
       horzLines: { color: '#f5f5f5' },
@@ -216,12 +216,30 @@ function initChart() {
     priceFormat,
   })
 
+  const yieldSeries = chart.addSeries(LineSeries, {
+    priceScaleId: 'right',
+    color: '#07c160',
+    lineWidth: 1,
+    lastValueVisible: true,
+    priceFormat: { type: 'percent' },
+  })
+
   const priceData = data.value.history.map((item: any) => ({
     time: item.date,
     value: item.price,
   }))
 
+  const yieldData = data.value.history
+    .filter((item: any) => item.yield_rate !== null && item.yield_rate !== undefined)
+    .map((item: any) => ({
+      time: item.date,
+      value: item.yield_rate,
+    }))
+
   priceSeries.setData(priceData)
+  if (yieldData.length > 0) {
+    yieldSeries.setData(yieldData)
+  }
   chart.timeScale().fitContent()
 }
 

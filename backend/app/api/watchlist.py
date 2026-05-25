@@ -123,11 +123,20 @@ async def get_watchlist_price_history(item_id: int):
         )
 
     history = []
+    start_price = None
+    if raw_history:
+        start_price = raw_history[0]["price"]
+
     for record in raw_history:
+        price = record["price"]
+        change_rate = None
+        if start_price is not None and start_price > 0:
+            change_rate = (price - start_price) / start_price * 100
+
         history.append(PriceHistoryItem(
             date=record["price_date"],
-            price=round(record["price"], 4),
-            yield_rate=None,  # 自选标的无持有成本，不计算收益率
+            price=round(price, 4),
+            yield_rate=round(change_rate, 2) if change_rate is not None else None,
         ))
 
     return WatchlistPriceHistoryResponse(
