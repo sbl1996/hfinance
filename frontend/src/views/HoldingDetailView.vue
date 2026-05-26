@@ -154,7 +154,7 @@ function marketLabel(market?: string | null) {
 
 function growthRateLabel(priceDate?: string | null) {
   const monthDay = formatMonthDay(priceDate)
-  return monthDay === '--' ? '收益率' : `${monthDay}收益率`
+  return monthDay === '--' ? '涨跌幅' : `${monthDay}涨跌幅`
 }
 
 function formatSignedMoney(value: number | null | undefined) {
