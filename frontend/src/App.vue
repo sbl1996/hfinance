@@ -2,12 +2,17 @@
   <router-view v-if="isLoginPage" />
   <div v-else class="app-container">
     <van-nav-bar
-      title="HFinance"
       right-text="退出"
       @click-right="handleLogout"
       :fixed="false"
       :border="false"
-    />
+    >
+      <template #title>
+        <div class="nav-title">
+          HFinance<span class="nav-version">v{{ version }}</span>
+        </div>
+      </template>
+    </van-nav-bar>
     <div class="app-content">
       <router-view />
     </div>
@@ -27,6 +32,7 @@ import { useAuthStore } from '@/stores/auth'
 import { showDialog } from 'vant'
 
 const route = useRoute()
+const version = __APP_VERSION__
 const authStore = useAuthStore()
 const activeTab = ref(0)
 
@@ -162,5 +168,25 @@ html, body, #app {
     right: auto;
     transform: translateX(-50%);
   }
+}
+
+.nav-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.nav-version {
+  font-size: 10px;
+  font-weight: normal;
+  opacity: 0.45;
+  margin-left: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 4px;
+  border-radius: 4px;
+  transform: scale(0.9);
+  display: inline-block;
+  vertical-align: middle;
 }
 </style>

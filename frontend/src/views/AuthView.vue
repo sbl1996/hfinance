@@ -20,6 +20,7 @@
       >
         登录
       </van-button>
+      <div class="auth-version">v{{ version }}</div>
     </div>
   </div>
 </template>
@@ -28,6 +29,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+
+const version = __APP_VERSION__
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -82,5 +85,13 @@ async function handleLogin() {
 
 .auth-btn {
   margin-top: 24px;
+}
+
+.auth-version {
+  text-align: center;
+  color: rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  margin-top: 28px;
+  letter-spacing: 0.5px;
 }
 </style>
