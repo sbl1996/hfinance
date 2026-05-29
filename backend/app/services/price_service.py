@@ -3,24 +3,41 @@
 支持降级逻辑：超时/报错时不写入缓存，保留旧数据
 """
 
+import asyncio
 import logging
+import time
 
 from app.repositories import holding_repo, price_repo, watchlist_repo
 from app.services.market_fetcher import fetch_a_etf, fetch_fund_nav, fetch_hk_stock, fetch_hkdcny_rate, fetch_us_stock
 
 logger = logging.getLogger(__name__)
 
+MARKET_SOURCE_GROUPS: dict[str, str] = {
+    "HK_STOCK": "hk",
+    "A_STOCK": "cn",
+    "FUND": "fund",
+    "US_STOCK": "us",
+}
+
+SOURCE_GROUP_CONCURRENCY: dict[str, int] = {
+    # Keep each source serialized first to avoid rate-limit regressions.
+    "hk": 1,
+    "cn": 1,
+    "fund": 1,
+    "us": 1,
+}
+
 
 async def _fetch_by_market(code: str, market: str, *, fund_force_refresh: bool = False) -> dict | None:
     """根据市场类型调用对应 fetcher"""
     if market == "HK_STOCK":
-        return fetch_hk_stock(code)
+        return await asyncio.to_thread(fetch_hk_stock, code)
     elif market == "A_STOCK":
-        return fetch_a_etf(code)
+        return await asyncio.to_thread(fetch_a_etf, code)
     elif market == "FUND":
         return await fetch_fund_nav(code, force_refresh=fund_force_refresh)
     elif market == "US_STOCK":
-        return fetch_us_stock(code)
+        return await asyncio.to_thread(fetch_us_stock, code)
     return None
 
 
@@ -74,6 +91,83 @@ async def update_single_price(code: str, market: str) -> dict:
     return await execute_price_refresh(code, market)
 
 
+def _get_source_group(market: str) -> str:
+    return MARKET_SOURCE_GROUPS.get(market, market.lower())
+
+
+async def _refresh_target(target: dict, *, fund_force_refresh: bool = False) -> dict:
+    code = target["code"]
+    market = target["market"]
+    result = None
+    previous_price = await price_repo.get_latest_price(code)
+
+    try:
+        result = await _fetch_by_market(code, market, fund_force_refresh=fund_force_refresh)
+    except Exception as e:
+        logger.error(f"抓取 {code} 行情异常: {e}")
+
+    if result:
+        await price_repo.upsert_price(
+            code=code,
+            price=result["price"],
+            currency=result["currency"],
+            price_date=result["price_date"],
+        )
+        return {
+            "code": code,
+            "market": market,
+            "source_group": _get_source_group(market),
+            "updated": True,
+            "failed": False,
+            "price": result["price"],
+            "price_date": result["price_date"],
+            "previous_price_date": previous_price["price_date"] if previous_price else None,
+        }
+
+    logger.warning(f"标的 {code} 行情获取失败，保留旧缓存")
+    return {
+        "code": code,
+        "market": market,
+        "source_group": _get_source_group(market),
+        "updated": False,
+        "failed": True,
+        "price": previous_price["price"] if previous_price else None,
+        "price_date": previous_price["price_date"] if previous_price else None,
+        "previous_price_date": previous_price["price_date"] if previous_price else None,
+    }
+
+
+async def _refresh_targets_in_group(
+    source_group: str,
+    targets: list[dict],
+    *,
+    fund_force_refresh: bool = False,
+) -> dict:
+    started_at = time.perf_counter()
+    semaphore = asyncio.Semaphore(max(SOURCE_GROUP_CONCURRENCY.get(source_group, 1), 1))
+
+    async def run_target(target: dict, *, force_refresh_fund: bool = False) -> dict:
+        async with semaphore:
+            return await _refresh_target(target, fund_force_refresh=force_refresh_fund)
+
+    tasks = [
+        run_target(
+            target,
+            force_refresh_fund=fund_force_refresh and source_group == "fund" and index == 0,
+        )
+        for index, target in enumerate(targets)
+    ]
+    results = await asyncio.gather(*tasks)
+
+    return {
+        "source_group": source_group,
+        "updated": sum(1 for item in results if item["updated"]),
+        "failed": sum(1 for item in results if item["failed"]),
+        "elapsed_ms": int((time.perf_counter() - started_at) * 1000),
+        "results": results,
+    }
+
+
 async def update_all_prices(*, market_type: str | None = None) -> dict:
     """
     遍历所有持仓，更新价格缓存和汇率缓存，支持按市场类型过滤
@@ -85,9 +179,13 @@ async def update_all_prices(*, market_type: str | None = None) -> dict:
     
     if market_type:
         targets = [t for t in targets if t["market"] == market_type]
-        
-    updated = 0
-    failed = 0
+
+    if not targets:
+        return {
+            "updated": 0,
+            "failed": 0,
+            "is_trading_day": True,
+        }
 
     # 仅在未指定市场或需要刷新港股时更新汇率
     if not market_type or market_type == "HK_STOCK":
@@ -109,40 +207,38 @@ async def update_all_prices(*, market_type: str | None = None) -> dict:
                 )
                 logger.warning("汇率获取失败，沿用上次缓存")
 
-    # 判断是否交易日：用第一个港股或A股的数据检查
-    is_trading_day = True
-    first_price_checked = False
-
+    grouped_targets: dict[str, list[dict]] = {}
     for target in targets:
-        code = target["code"]
-        market = target["market"]
-        result = None
+        source_group = _get_source_group(target["market"])
+        grouped_targets.setdefault(source_group, []).append(target)
 
-        try:
-            result = await _fetch_by_market(code, market)
-        except Exception as e:
-            logger.error(f"抓取 {code} 行情异常: {e}")
+    group_tasks = [
+        _refresh_targets_in_group(
+            source_group,
+            group_targets,
+            fund_force_refresh=market_type == "FUND",
+        )
+        for source_group, group_targets in grouped_targets.items()
+    ]
+    group_results = await asyncio.gather(*group_tasks)
+    all_results = [item for group in group_results for item in group["results"]]
 
-        # 判断是否交易日（非交易日：抓取的 price_date 与上次相同）
-        if result and not first_price_checked:
-            old_price = await price_repo.get_latest_price(code)
-            if old_price and old_price["price_date"] == result["price_date"]:
-                is_trading_day = False
-            first_price_checked = True
+    updated = sum(group["updated"] for group in group_results)
+    failed = sum(group["failed"] for group in group_results)
 
-        if result:
-            await price_repo.upsert_price(
-                code=code,
-                price=result["price"],
-                currency=result["currency"],
-                price_date=result["price_date"],
-            )
-            updated += 1
-        else:
-            # 抓取失败，不写入缓存，保留旧数据
-            old_price = await price_repo.get_latest_price(code)
-            failed += 1
-            logger.warning(f"标的 {code} 行情获取失败，保留旧缓存")
+    # 判断是否交易日：用原始顺序中第一个成功刷新的港股或A股结果检查
+    is_trading_day = True
+    result_by_key = {(item["code"], item["market"]): item for item in all_results}
+    for target in targets:
+        if target["market"] not in {"HK_STOCK", "A_STOCK"}:
+            continue
+        result = result_by_key.get((target["code"], target["market"]))
+        if not result or not result["updated"]:
+            continue
+
+        if result.get("previous_price_date") == result["price_date"]:
+            is_trading_day = False
+        break
 
     return {
         "updated": updated,
