@@ -2,15 +2,10 @@
   <router-view v-if="isLoginPage" />
   <div v-else class="app-container">
     <van-nav-bar
+      title="HFinance"
       :fixed="false"
       :border="false"
-    >
-      <template #title>
-        <div class="nav-title">
-          HFinance<span class="nav-version">v{{ version }}</span>
-        </div>
-      </template>
-    </van-nav-bar>
+    />
     <div class="app-content">
       <router-view />
     </div>
@@ -29,7 +24,6 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
-const version = __APP_VERSION__
 const authStore = useAuthStore()
 const activeTab = ref(0)
 
