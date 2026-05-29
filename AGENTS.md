@@ -11,7 +11,7 @@ HFinance is a personal asset management & accounting system (个人资产管理�
 ## Commands
 
 ```bash
-# Start both backend + frontend for development
+# Start both backend + frontend for local development
 bash dev.sh
 
 # Or start individually:
@@ -21,6 +21,10 @@ cd frontend && pnpm dev          # http://localhost:5173, proxies /api -> localh
 # Frontend-only:
 cd frontend && pnpm build        # Production build
 cd frontend && pnpm type-check   # TypeScript type checking
+
+# Deploy to the production server
+git push
+ssh ark-1 "zsh -lic 'cd ~/Code/hfinance && git restore . && proxy_on && git pull && proxy_off && sleep 1 && bash deploy/deploy.sh'" # if the proxy fails, run `git pull` directly
 ```
 
 ## Architecture
@@ -52,18 +56,10 @@ cd frontend && pnpm type-check   # TypeScript type checking
 
 **Database** (`backend/app/db/schema.sql`): SQLite with 9 tables — cash_accounts, liabilities, holdings, holding_sort_orders, price_cache, watchlist_items, exchange_rates, fetch_tasks, fetch_task_runs.
 
-## Deployment
-
-```
-git push
-ssh ark-1 "zsh -lic 'cd ~/Code/hfinance && proxy_on && git restore . && git pull && sleep 1 && proxy_off && bash deploy/deploy.sh'"
-# if the proxy fails, run without it
-ssh ark-1 "zsh -lic 'cd ~/Code/hfinance && git restore . && git pull && sleep 1 && bash deploy/deploy.sh'"
-```
 
 ## Conventions
 
-- Short git commit messages in English (follow Conventional Commits)
-- Use `uv pip` for Python packages, `pnpm` for Node.js
+- Use short English commit messages, preferably following Conventional Commits
+- Use `uv pip` for Python dependency management and `pnpm` for Node.js
 - Mobile-first design (max-width 480px content area, Vant tab/nav bars)
-- Update version and RELEASE_NOTES before commit
+- Before finishing a change, remind the user when version metadata or `RELEASE_NOTES.md` may need to be updated
