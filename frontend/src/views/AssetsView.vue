@@ -1,5 +1,8 @@
 <template>
-  <div class="accounting-page">
+  <div class="assets-page">
+    <!-- 资产总览卡片 -->
+    <OverviewCard :overview="dashboardStore.overview" :loading="dashboardStore.loading" />
+
     <!-- 现金账户 -->
     <div class="section">
       <div class="section-header">
@@ -53,14 +56,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { showConfirmDialog } from 'vant'
+import { useDashboardStore } from '@/stores/dashboard'
 import { useCashStore } from '@/stores/cash'
 import { useLiabilityStore } from '@/stores/liability'
 import { formatMoney } from '@/utils/format'
+import OverviewCard from '@/components/OverviewCard.vue'
 import CashAccountList from '@/components/CashAccountList.vue'
 import CashAccountForm from '@/components/CashAccountForm.vue'
 import LiabilityList from '@/components/LiabilityList.vue'
 import LiabilityForm from '@/components/LiabilityForm.vue'
 
+const dashboardStore = useDashboardStore()
 const cashStore = useCashStore()
 const liabilityStore = useLiabilityStore()
 
@@ -70,8 +76,9 @@ const showLiabilityForm = ref(false)
 const editingLiability = ref<any>(null)
 
 onMounted(() => {
-  cashStore.fetchAccounts()
-  liabilityStore.fetchLiabilities()
+  dashboardStore.fetchOverview().catch(() => {})
+  cashStore.fetchAccounts().catch(() => {})
+  liabilityStore.fetchLiabilities().catch(() => {})
 })
 
 function openCashForm(account?: any) {
@@ -92,6 +99,8 @@ async function handleCashSubmit(data: any) {
   }
   showCashForm.value = false
   editingCash.value = null
+  // 联动更新净资产卡片
+  dashboardStore.fetchOverview().catch(() => {})
 }
 
 async function handleLiabilitySubmit(data: any) {
@@ -102,12 +111,16 @@ async function handleLiabilitySubmit(data: any) {
   }
   showLiabilityForm.value = false
   editingLiability.value = null
+  // 联动更新净资产卡片
+  dashboardStore.fetchOverview().catch(() => {})
 }
 
 async function handleDeleteCash(account: any) {
   try {
     await showConfirmDialog({ title: '确认删除', message: `确定删除「${account.name}」？` })
     await cashStore.deleteAccount(account.id)
+    // 联动更新净资产卡片
+    dashboardStore.fetchOverview().catch(() => {})
   } catch { /* cancelled */ }
 }
 
@@ -115,16 +128,19 @@ async function handleDeleteLiability(liability: any) {
   try {
     await showConfirmDialog({ title: '确认删除', message: `确定删除「${liability.name}」？` })
     await liabilityStore.deleteLiability(liability.id)
+    // 联动更新净资产卡片
+    dashboardStore.fetchOverview().catch(() => {})
   } catch { /* cancelled */ }
 }
 </script>
 
 <style scoped>
-.accounting-page {
+.assets-page {
   padding: 12px;
 }
 
 .section {
+  margin-top: 16px;
   margin-bottom: 24px;
 }
 

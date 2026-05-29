@@ -42,7 +42,7 @@ async function handleLogin() {
   loading.value = true
   try {
     await authStore.login(password.value)
-    router.push('/dashboard')
+    router.push('/assets')
   } catch {
     password.value = ''
   } finally {

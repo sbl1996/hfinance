@@ -10,12 +10,20 @@ const routes = [
   },
   {
     path: '/',
-    redirect: '/dashboard',
+    redirect: '/assets',
   },
   {
     path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('@/views/DashboardView.vue'),
+    redirect: '/assets',
+  },
+  {
+    path: '/accounting',
+    redirect: '/assets',
+  },
+  {
+    path: '/assets',
+    name: 'Assets',
+    component: () => import('@/views/AssetsView.vue'),
     meta: { requiresAuth: true },
   },
   {
@@ -49,9 +57,9 @@ const routes = [
     meta: { requiresAuth: true, adminOnly: true },
   },
   {
-    path: '/accounting',
-    name: 'Accounting',
-    component: () => import('@/views/AccountingView.vue'),
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/ProfileView.vue'),
     meta: { requiresAuth: true },
   },
 ]
@@ -67,9 +75,9 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth !== false && !token) {
     next({ name: 'Login' })
   } else if (to.name === 'Login' && token) {
-    next({ name: 'Dashboard' })
+    next({ name: 'Assets' })
   } else if (to.meta.adminOnly && isGuestToken(token)) {
-    next({ name: 'Dashboard' })
+    next({ name: 'Assets' })
   } else {
     next()
   }

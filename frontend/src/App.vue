@@ -2,8 +2,6 @@
   <router-view v-if="isLoginPage" />
   <div v-else class="app-container">
     <van-nav-bar
-      right-text="退出"
-      @click-right="handleLogout"
       :fixed="false"
       :border="false"
     >
@@ -17,10 +15,10 @@
       <router-view />
     </div>
     <van-tabbar v-model="activeTab" route>
-      <van-tabbar-item to="/dashboard" icon="chart-trending-o">总览</van-tabbar-item>
+      <van-tabbar-item to="/assets" icon="balance-o">资产</van-tabbar-item>
       <van-tabbar-item to="/investment" icon="bar-chart-o">投资</van-tabbar-item>
       <van-tabbar-item v-if="!authStore.isGuest" to="/tasks" icon="clock-o">任务</van-tabbar-item>
-      <van-tabbar-item to="/accounting" icon="balance-o">记账</van-tabbar-item>
+      <van-tabbar-item to="/profile" icon="user-o">我的</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
@@ -29,7 +27,6 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { showDialog } from 'vant'
 
 const route = useRoute()
 const version = __APP_VERSION__
@@ -37,18 +34,6 @@ const authStore = useAuthStore()
 const activeTab = ref(0)
 
 const isLoginPage = computed(() => route.path === '/login')
-
-const handleLogout = () => {
-  showDialog({
-    title: '提示',
-    message: '确定要退出登录吗？',
-    showCancelButton: true,
-  }).then(() => {
-    authStore.logout()
-  }).catch(() => {
-    // on cancel
-  })
-}
 </script>
 
 <style>
