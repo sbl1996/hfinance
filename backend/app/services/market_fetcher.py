@@ -79,9 +79,61 @@ def _agent_browser_cli(*args: str) -> str:
     return result.stdout.strip()
 
 
-def _fetch_hk_stock_browser(code: str) -> dict | None:
+def _fetch_hk_stock_tencent(code: str) -> dict | None:
     """
-    通过 agent-browser 访问富途港股页面获取价格
+    通过 agent-browser 访问腾讯网港股页面，直接从 stdout 的 title 中快速解析价格和涨幅
+    :param code: 港股代码，如 "00700"
+    :return: {"price": float, "price_date": str, "currency": "HKD", "growth_rate": float} 或 None
+    """
+    try:
+        # 腾讯网港股页面 URL，港股代码补足5位
+        url = f"https://gu.qq.com/hk{code.zfill(5)}/gp"
+        stdout = _agent_browser_cli("open", url)
+
+        # 解析 stdout 中的 title 信息，第一行格式例如：
+        # ✓ 腾讯控股 428.200 3.200(+0.75%)_财经频道_腾讯网
+        # ✓ 地平线机器人-W 5.280 -0.410(-7.21%)_财经频道_腾讯网
+        lines = stdout.splitlines()
+        if not lines:
+            logger.warning(f"腾讯网抓取港股 {code} 返回内容为空")
+            return None
+
+        title_line = lines[0].strip()
+        # 匹配价格与括号内的涨跌幅百分比
+        pattern = r"(\d+(?:\.\d+)?)\s+[+-]?\d+(?:\.\d+)?\(([-+]?\d+(?:\.\d+)?)%\)_财经频道_腾讯网"
+        match = re.search(pattern, title_line)
+        if not match:
+            logger.warning(f"腾讯网抓取无法从标题解析港股 {code} 的价格与日增长率。标题: {title_line}")
+            return None
+
+        latest_price = float(match.group(1))
+        growth_rate = float(match.group(2)) / 100  # 转为小数，例如 -7.21 -> -0.0721
+
+        return {
+            "price": latest_price,
+            "price_date": datetime.now().strftime("%Y-%m-%d"),
+            "currency": "HKD",
+            "growth_rate": growth_rate,
+        }
+    except FileNotFoundError:
+        logger.warning("agent-browser 命令未找到，腾讯网浏览器抓取不可用")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.error(f"agent-browser 腾讯网获取港股 {code} 行情超时")
+        return None
+    except Exception as e:
+        logger.error(f"腾讯网获取港股 {code} 行情失败: {e}")
+        return None
+    finally:
+        try:
+            _agent_browser_cli("close")
+        except Exception:
+            pass
+
+
+def _fetch_hk_stock_futu(code: str) -> dict | None:
+    """
+    通过 agent-browser 访问富途港股页面获取价格（作为第二优先级备份）
     :param code: 港股代码，如 "00700"
     :return: {"price": float, "price_date": str, "currency": "HKD", "growth_rate": float} 或 None
     """
@@ -107,11 +159,11 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
         )
         match = re.search(pattern, snap_text, re.DOTALL)
         if not match:
-            logger.warning(f"浏览器抓取未在页面快照中找到港股 {code} 的价格与日增长率")
+            logger.warning(f"富途抓取未在页面快照中找到港股 {code} 的价格与日增长率")
             return None
 
         latest_price = float(match.group(1))
-        growth_rate = float(match.group(2)) / 100  # 页面显示百分比，转为小数
+        growth_rate = float(match.group(2)) / 100  # 页面显示百分比，转为小数，例如7.03 -> 0.0703
         return {
             "price": latest_price,
             "price_date": datetime.now().strftime("%Y-%m-%d"),
@@ -119,13 +171,13 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
             "growth_rate": growth_rate,
         }
     except FileNotFoundError:
-        logger.warning("agent-browser 命令未找到，浏览器 fallback 不可用")
+        logger.warning("agent-browser 命令未找到，富途浏览器抓取不可用")
         return None
     except subprocess.TimeoutExpired:
-        logger.error(f"agent-browser 获取港股 {code} 行情超时")
+        logger.error(f"agent-browser 富途获取港股 {code} 行情超时")
         return None
     except Exception as e:
-        logger.error(f"浏览器获取港股 {code} 行情失败: {e}")
+        logger.error(f"富途浏览器获取港股 {code} 行情失败: {e}")
         return None
     finally:
         try:
@@ -137,15 +189,23 @@ def _fetch_hk_stock_browser(code: str) -> dict | None:
 def fetch_hk_stock(code: str) -> dict | None:
     """
     获取港股价格
-    优先使用 agent-browser 爬取富途网页，失败时 fallback 到 AKShare
+    降级顺序：腾讯网 (Tencent) -> 富途网页 (Futu) -> AKShare
     :param code: 港股代码，如 "00700"
     :return: {"price": float, "price_date": str, "currency": "HKD", "growth_rate": float} 或 None
     """
-    result = _fetch_hk_stock_browser(code)
+    # 1. 尝试腾讯网快速抓取
+    result = _fetch_hk_stock_tencent(code)
     if result is not None:
         return result
+    logger.info(f"港股 {code} 腾讯网抓取失败，尝试富途网页抓取")
 
-    logger.info(f"港股 {code} 浏览器抓取失败，尝试 AKShare fallback")
+    # 2. 降级尝试富途抓取
+    result = _fetch_hk_stock_futu(code)
+    if result is not None:
+        return result
+    logger.info(f"港股 {code} 富途网页抓取失败，尝试 AKShare fallback")
+
+    # 3. 降级尝试 AKShare
     return _fetch_hk_stock_akshare(code)
 
 
