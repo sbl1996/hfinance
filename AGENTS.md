@@ -63,6 +63,7 @@ ssh ark-1 "zsh -lic 'cd ~/Code/hfinance && git restore . && git pull && sleep 1 
 
 ## Conventions
 
-- Short git commit messages in English
+- Short git commit messages in English (follow Conventional Commits)
 - Use `uv pip` for Python packages, `pnpm` for Node.js
 - Mobile-first design (max-width 480px content area, Vant tab/nav bars)
+- Update version and RELEASE_NOTES before commit
