@@ -53,10 +53,10 @@ export const useHoldingStore = defineStore('holding', () => {
     await fetchHoldings()
   }
 
-  async function refreshMarket() {
+  async function refreshMarket(market?: string) {
     refreshing.value = true
     try {
-      await request.post('/market/refresh')
+      await request.post('/market/refresh', null, { params: { market } })
       await fetchHoldings()
     } finally {
       refreshing.value = false

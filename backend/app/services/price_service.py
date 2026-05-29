@@ -74,35 +74,40 @@ async def update_single_price(code: str, market: str) -> dict:
     return await execute_price_refresh(code, market)
 
 
-async def update_all_prices() -> dict:
+async def update_all_prices(*, market_type: str | None = None) -> dict:
     """
-    遍历所有持仓，更新价格缓存和汇率缓存
+    遍历所有持仓，更新价格缓存和汇率缓存，支持按市场类型过滤
     返回 {"updated": int, "failed": int, "is_trading_day": bool}
     """
     holdings = await holding_repo.get_all()
     watchlist_items = await watchlist_repo.get_all()
     targets = _merge_refresh_targets(holdings, watchlist_items)
+    
+    if market_type:
+        targets = [t for t in targets if t["market"] == market_type]
+        
     updated = 0
     failed = 0
 
-    # 先更新汇率
-    rate_result = fetch_hkdcny_rate()
-    if rate_result:
-        await price_repo.upsert_rate(
-            pair="HKDCNY",
-            rate=rate_result["rate"],
-            rate_date=rate_result["rate_date"],
-        )
-    else:
-        # 汇率获取失败，标记旧汇率
-        old_rate = await price_repo.get_latest_rate("HKDCNY")
-        if old_rate:
+    # 仅在未指定市场或需要刷新港股时更新汇率
+    if not market_type or market_type == "HK_STOCK":
+        rate_result = fetch_hkdcny_rate()
+        if rate_result:
             await price_repo.upsert_rate(
                 pair="HKDCNY",
-                rate=old_rate["rate"],
-                rate_date=old_rate["rate_date"],
+                rate=rate_result["rate"],
+                rate_date=rate_result["rate_date"],
             )
-            logger.warning("汇率获取失败，沿用上次缓存")
+        else:
+            # 汇率获取失败，标记旧汇率
+            old_rate = await price_repo.get_latest_rate("HKDCNY")
+            if old_rate:
+                await price_repo.upsert_rate(
+                    pair="HKDCNY",
+                    rate=old_rate["rate"],
+                    rate_date=old_rate["rate_date"],
+                )
+                logger.warning("汇率获取失败，沿用上次缓存")
 
     # 判断是否交易日：用第一个港股或A股的数据检查
     is_trading_day = True

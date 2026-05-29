@@ -9,9 +9,9 @@ router = APIRouter()
 
 
 @router.post("/refresh")
-async def refresh_market():
-    """手动触发全量行情更新"""
-    result = await update_all_prices()
+async def refresh_market(market: str | None = None):
+    """手动触发行情更新，支持按市场类型过滤"""
+    result = await update_all_prices(market_type=market)
     return {"price_update": result}
 
 

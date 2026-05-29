@@ -71,8 +71,9 @@
         <van-button
           size="small"
           icon="replay"
-          :loading="holdingStore.refreshing"
-          :disabled="holdingStore.refreshing || refreshingFunds"
+          :loading="refreshingAll"
+          loading-text="刷新全部"
+          :disabled="refreshingAll || refreshingFunds"
           @click="handleRefreshMarket"
         >
           刷新全部
@@ -82,7 +83,8 @@
           plain
           icon="replay"
           :loading="refreshingFunds"
-          :disabled="holdingStore.refreshing || refreshingFunds"
+          loading-text="刷新基金"
+          :disabled="refreshingAll || refreshingFunds"
           @click="handleRefreshFunds"
         >
           刷新基金
@@ -253,38 +255,46 @@ async function handleCreateInvestment(payload: any) {
   showInvestmentForm.value = false
 }
 
+const refreshingAll = ref(false)
 const refreshingFunds = ref(false)
 
 async function handleRefreshSingle(holding: any) {
-  if (sortMode.value || holdingStore.refreshing || refreshingFunds.value) {
+  if (sortMode.value || refreshingAll.value || refreshingFunds.value) {
     return
   }
   await holdingStore.refreshSingle(holding.code, holding.market)
 }
 
 async function handleRefreshWatchItem(item: any) {
-  if (holdingStore.refreshing || refreshingFunds.value) {
+  if (refreshingAll.value || refreshingFunds.value) {
     return
   }
   await watchlistStore.refreshSingle(item.code, item.market)
 }
 
 async function handleRefreshMarket() {
-  if (holdingStore.refreshing || refreshingFunds.value) {
+  if (refreshingAll.value || refreshingFunds.value) {
     return
   }
-  await holdingStore.refreshMarket()
-  await watchlistStore.fetchWatchlist()
+  refreshingAll.value = true
+  try {
+    await holdingStore.refreshMarket()
+    await watchlistStore.fetchWatchlist()
+  } catch (err) {
+    console.error('刷新全部失败', err)
+  } finally {
+    refreshingAll.value = false
+  }
 }
 
 async function handleRefreshFunds() {
-  if (holdingStore.refreshing || refreshingFunds.value) {
+  if (refreshingAll.value || refreshingFunds.value) {
     return
   }
   refreshingFunds.value = true
   try {
     await holdingStore.invalidateFundNavCache()
-    await holdingStore.refreshMarket()
+    await holdingStore.refreshMarket('FUND')
     await watchlistStore.fetchWatchlist()
     showSuccessToast('基金净值已刷新')
   } catch (err) {
