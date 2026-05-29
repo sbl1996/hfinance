@@ -72,18 +72,20 @@
           size="small"
           icon="replay"
           :loading="holdingStore.refreshing"
+          :disabled="holdingStore.refreshing || refreshingFunds"
           @click="handleRefreshMarket"
         >
-          刷新行情
+          刷新全部
         </van-button>
         <van-button
           size="small"
           plain
-          icon="warning-o"
-          :loading="holdingStore.invalidatingFundNavCache"
-          @click="handleInvalidateFundNavCache"
+          icon="replay"
+          :loading="refreshingFunds"
+          :disabled="holdingStore.refreshing || refreshingFunds"
+          @click="handleRefreshFunds"
         >
-          失效基金缓存
+          刷新基金
         </van-button>
       </template>
       <template v-else>
@@ -251,25 +253,45 @@ async function handleCreateInvestment(payload: any) {
   showInvestmentForm.value = false
 }
 
+const refreshingFunds = ref(false)
+
 async function handleRefreshSingle(holding: any) {
-  if (sortMode.value) {
+  if (sortMode.value || holdingStore.refreshing || refreshingFunds.value) {
     return
   }
   await holdingStore.refreshSingle(holding.code, holding.market)
 }
 
 async function handleRefreshWatchItem(item: any) {
+  if (holdingStore.refreshing || refreshingFunds.value) {
+    return
+  }
   await watchlistStore.refreshSingle(item.code, item.market)
 }
 
 async function handleRefreshMarket() {
+  if (holdingStore.refreshing || refreshingFunds.value) {
+    return
+  }
   await holdingStore.refreshMarket()
   await watchlistStore.fetchWatchlist()
 }
 
-async function handleInvalidateFundNavCache() {
-  await holdingStore.invalidateFundNavCache()
-  showSuccessToast('基金净值缓存已失效')
+async function handleRefreshFunds() {
+  if (holdingStore.refreshing || refreshingFunds.value) {
+    return
+  }
+  refreshingFunds.value = true
+  try {
+    await holdingStore.invalidateFundNavCache()
+    await holdingStore.refreshMarket()
+    await watchlistStore.fetchWatchlist()
+    showSuccessToast('基金净值已刷新')
+  } catch (err) {
+    console.error('刷新基金失败', err)
+  } finally {
+    refreshingFunds.value = false
+  }
 }
 
 function handleEnterSortMode() {
