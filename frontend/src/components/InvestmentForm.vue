@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { showToast } from 'vant'
 import type { WatchMarket } from '@/types/watchlist'
 
@@ -102,13 +102,19 @@ watch(visible, (value) => emit('update:show', value))
 
 const investmentType = ref<InvestmentType>('HOLDING')
 const showMarketPicker = ref(false)
-const marketColumns = [
+const allMarketColumns = [
   { text: 'A股', value: 'A_STOCK' },
   { text: '港股', value: 'HK_STOCK' },
   { text: '基金', value: 'FUND' },
   { text: '美股', value: 'US_STOCK' },
   { text: '指数', value: 'CN_INDEX' },
 ]
+const holdingMarketValues = new Set(['A_STOCK', 'HK_STOCK', 'FUND'])
+const marketColumns = computed(() => (
+  investmentType.value === 'HOLDING'
+    ? allMarketColumns.filter((item) => holdingMarketValues.has(item.value))
+    : allMarketColumns
+))
 const marketLabels: Record<WatchMarket, string> = {
   A_STOCK: 'A股',
   HK_STOCK: '港股',
