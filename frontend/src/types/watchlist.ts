@@ -1,4 +1,4 @@
-export type WatchMarket = 'A_STOCK' | 'HK_STOCK' | 'FUND' | 'US_STOCK'
+export type WatchMarket = 'A_STOCK' | 'HK_STOCK' | 'FUND' | 'US_STOCK' | 'CN_INDEX'
 
 export interface WatchlistItem {
   id: number

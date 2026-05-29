@@ -20,7 +20,7 @@
         </button>
       </div>
 
-      <van-field v-model="form.code" label="代码" placeholder="如 510300、00700、TSLA、.NDX" required />
+      <van-field v-model="form.code" label="代码" placeholder="如 510300、00700、TSLA、H30269" required />
       <van-field v-model="form.name" label="名称" placeholder="标的名称" required />
       <van-field
         v-model="form.market"
@@ -107,12 +107,14 @@ const marketColumns = [
   { text: '港股', value: 'HK_STOCK' },
   { text: '基金', value: 'FUND' },
   { text: '美股', value: 'US_STOCK' },
+  { text: '指数', value: 'CN_INDEX' },
 ]
 const marketLabels: Record<WatchMarket, string> = {
   A_STOCK: 'A股',
   HK_STOCK: '港股',
   FUND: '基金',
   US_STOCK: '美股',
+  CN_INDEX: '指数',
 }
 
 const form = reactive({
@@ -127,7 +129,7 @@ const activePriceField = ref<'quantity' | 'unit_price' | 'cost_total_cny' | null
 const syncingPriceFields = ref(false)
 
 watch(investmentType, (type) => {
-  if (type === 'HOLDING' && form.market === '美股') {
+  if (type === 'HOLDING' && ['美股', '指数'].includes(form.market)) {
     form.market = 'A股'
   }
 })
@@ -206,8 +208,8 @@ function syncQuantityFromUnitPrice() {
 
 function onMarketConfirm({ selectedValues }: any) {
   const value = selectedValues[0] as WatchMarket
-  if (investmentType.value === 'HOLDING' && value === 'US_STOCK') {
-    showToast('持仓暂不支持美股，请使用自选')
+  if (investmentType.value === 'HOLDING' && ['US_STOCK', 'CN_INDEX'].includes(value)) {
+    showToast('持仓暂不支持该类型，请使用自选')
     showMarketPicker.value = false
     return
   }

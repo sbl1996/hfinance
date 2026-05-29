@@ -2,7 +2,7 @@
   <van-popup v-model:show="visible" position="bottom" round :style="{ maxHeight: '80vh' }">
     <div class="form-container">
       <h3 class="form-title">{{ item ? '编辑自选' : '新增自选' }}</h3>
-      <van-field v-model="form.code" label="代码" placeholder="如 510300、00700、TSLA" required />
+      <van-field v-model="form.code" label="代码" placeholder="如 510300、00700、TSLA、H30269" required />
       <van-field v-model="form.name" label="名称" placeholder="标的名称" required />
       <van-field
         v-model="form.market"
@@ -77,12 +77,14 @@ const marketColumns = [
   { text: '港股', value: 'HK_STOCK' },
   { text: '基金', value: 'FUND' },
   { text: '美股', value: 'US_STOCK' },
+  { text: '指数', value: 'CN_INDEX' },
 ]
 const marketLabels: Record<WatchMarket, string> = {
   A_STOCK: 'A股',
   HK_STOCK: '港股',
   FUND: '基金',
   US_STOCK: '美股',
+  CN_INDEX: '指数',
 }
 
 const form = reactive({

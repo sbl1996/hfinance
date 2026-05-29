@@ -31,6 +31,7 @@ class WatchMarketType(str, Enum):
     HK_STOCK = "HK_STOCK"
     FUND = "FUND"
     US_STOCK = "US_STOCK"
+    CN_INDEX = "CN_INDEX"
 
 
 class CurrencyType(str, Enum):

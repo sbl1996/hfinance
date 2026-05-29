@@ -45,6 +45,7 @@ async def init_database():
         """
     )
     await _migrate_price_cache_currency_check(db)
+    await _migrate_watchlist_items_market_check(db)
     await db.commit()
 
 
@@ -77,5 +78,36 @@ async def _migrate_price_cache_currency_check(db):
         DROP TABLE price_cache_old;
         CREATE INDEX IF NOT EXISTS idx_price_cache_code ON price_cache(code);
         CREATE INDEX IF NOT EXISTS idx_price_cache_date ON price_cache(price_date);
+        """
+    )
+
+
+async def _migrate_watchlist_items_market_check(db):
+    """重建 watchlist_items 以允许自选指数类型。"""
+    cursor = await db.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'watchlist_items'"
+    )
+    row = await cursor.fetchone()
+    create_sql = (row[0] if row else "") or ""
+    if "'CN_INDEX'" in create_sql:
+        return
+
+    await db.executescript(
+        """
+        ALTER TABLE watchlist_items RENAME TO watchlist_items_old;
+        CREATE TABLE watchlist_items (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            code        TEXT    NOT NULL,
+            name        TEXT    NOT NULL,
+            market      TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND', 'US_STOCK', 'CN_INDEX')),
+            sort_order  INTEGER NOT NULL DEFAULT 0,
+            created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+            updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+        );
+        INSERT INTO watchlist_items (id, code, name, market, sort_order, created_at, updated_at)
+        SELECT id, code, name, market, sort_order, created_at, updated_at
+        FROM watchlist_items_old;
+        DROP TABLE watchlist_items_old;
+        CREATE INDEX IF NOT EXISTS idx_watchlist_items_sort_order ON watchlist_items(sort_order, id);
         """
     )

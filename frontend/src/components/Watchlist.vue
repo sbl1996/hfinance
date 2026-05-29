@@ -66,6 +66,7 @@ function marketLabel(market?: string | null) {
   if (market === 'HK_STOCK') return '港股'
   if (market === 'FUND') return '基金'
   if (market === 'US_STOCK') return '美股'
+  if (market === 'CN_INDEX') return '指数'
   return '--'
 }
 
@@ -202,6 +203,11 @@ function formatSignedPercent(value: number) {
 .market-badge-us_stock {
   background: #eef1ff;
   color: #4458c8;
+}
+
+.market-badge-cn_index {
+  background: #f0f7ff;
+  color: #00708a;
 }
 
 .market-badge-default {

@@ -8,20 +8,28 @@ import logging
 import time
 
 from app.repositories import holding_repo, price_repo, watchlist_repo
-from app.services.market_fetcher import fetch_a_etf, fetch_fund_nav, fetch_hk_stock, fetch_hkdcny_rate, fetch_us_stock
+from app.services.market_fetcher import (
+    fetch_a_etf,
+    fetch_cn_index,
+    fetch_fund_nav,
+    fetch_hk_stock,
+    fetch_hkdcny_rate,
+    fetch_us_stock,
+)
 
 logger = logging.getLogger(__name__)
 
 MARKET_SOURCE_GROUPS: dict[str, str] = {
-    "HK_STOCK": "hk",
+    "HK_STOCK": "browser",
     "A_STOCK": "cn",
     "FUND": "fund",
     "US_STOCK": "us",
+    "CN_INDEX": "browser",
 }
 
 SOURCE_GROUP_CONCURRENCY: dict[str, int] = {
     # Keep each source serialized first to avoid rate-limit regressions.
-    "hk": 1,
+    "browser": 1,
     "cn": 1,
     "fund": 1,
     "us": 1,
@@ -38,6 +46,8 @@ async def _fetch_by_market(code: str, market: str, *, fund_force_refresh: bool =
         return await fetch_fund_nav(code, force_refresh=fund_force_refresh)
     elif market == "US_STOCK":
         return await asyncio.to_thread(fetch_us_stock, code)
+    elif market == "CN_INDEX":
+        return await asyncio.to_thread(fetch_cn_index, code)
     return None
 
 

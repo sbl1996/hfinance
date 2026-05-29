@@ -6,6 +6,7 @@
 - A股/ETF：fund_etf_spot_em / stock_zh_a_spot_em
 - 场外基金：fund_open_fund_info_em
 - 美股：index_us_stock_sina（日线最新 close）
+- 国内指数：东方财富网页
 - 汇率：fx_spot_quote
 """
 
@@ -280,6 +281,108 @@ def fetch_us_stock(code: str) -> dict | None:
     except Exception as e:
         logger.error(f"获取美股 {code} 行情失败: {e}")
         return None
+
+
+def fetch_cn_index(code: str) -> dict | None:
+    """
+    获取国内指数最新点位。
+    :param code: 指数代码，如 "H30269"
+    :return: {"price": float, "price_date": str, "currency": "CNY", "growth_rate": float} 或 None
+    """
+    symbol = str(code).strip().upper()
+    result = _fetch_cn_index_xueqiu(symbol)
+    if result is not None:
+        return result
+
+    logger.info(f"雪球获取指数 {symbol} 行情失败，尝试东方财富 fallback")
+    return _fetch_cn_index_eastmoney(symbol)
+
+
+def _fetch_cn_index_xueqiu(symbol: str) -> dict | None:
+    """通过雪球指数页抓取最新点位和涨跌幅。"""
+    xueqiu_symbol = symbol if symbol.startswith("CSI") else f"CSI{symbol}"
+    try:
+        url = f"https://xueqiu.com/S/{xueqiu_symbol}/notices"
+        _agent_browser_cli("open", url)
+
+        match = None
+        for _ in range(3):
+            time.sleep(2)
+            snap_text = _agent_browser_cli("snapshot")
+            match = re.search(
+                r'link "加自选".*?strong\s+- StaticText "(\d+(?:\.\d+)?)"\s+'
+                r'- StaticText "[+-]?\d+(?:\.\d+)?\s+([+-]?\d+(?:\.\d+)?)%"',
+                snap_text,
+                re.DOTALL,
+            )
+            if match:
+                break
+
+        if not match:
+            logger.warning(f"雪球指数页未找到 {xueqiu_symbol} 最新点位")
+            return None
+
+        return {
+            "price": float(match.group(1)),
+            "price_date": datetime.now().strftime("%Y-%m-%d"),
+            "currency": "CNY",
+            "growth_rate": float(match.group(2)) / 100,
+        }
+    except FileNotFoundError:
+        logger.warning("agent-browser 命令未找到，雪球指数抓取不可用")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.error(f"agent-browser 雪球获取指数 {xueqiu_symbol} 行情超时")
+        return None
+    except Exception as e:
+        logger.error(f"雪球获取指数 {xueqiu_symbol} 行情失败: {e}")
+        return None
+    finally:
+        try:
+            _agent_browser_cli("close")
+        except Exception:
+            pass
+
+
+def _fetch_cn_index_eastmoney(symbol: str) -> dict | None:
+    """通过东方财富指数页兜底抓取最新点位。"""
+    eastmoney_symbol = symbol[3:] if symbol.startswith("CSI") else symbol
+    try:
+        url = f"https://quote.eastmoney.com/zz/2.{eastmoney_symbol}.html"
+        _agent_browser_cli("open", url)
+
+        match = None
+        for _ in range(3):
+            time.sleep(2)
+            snap_text = _agent_browser_cli("snapshot")
+            match = re.search(r"最新[:：]\s*(\d+(?:\.\d+)?)", snap_text)
+            if match:
+                break
+
+        if not match:
+            logger.warning(f"东方财富指数页未找到 {eastmoney_symbol} 最新点位")
+            return None
+
+        return {
+            "price": float(match.group(1)),
+            "price_date": datetime.now().strftime("%Y-%m-%d"),
+            "currency": "CNY",
+            "growth_rate": 0.0,
+        }
+    except FileNotFoundError:
+        logger.warning("agent-browser 命令未找到，东方财富指数抓取不可用")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.error(f"agent-browser 东方财富获取指数 {eastmoney_symbol} 行情超时")
+        return None
+    except Exception as e:
+        logger.error(f"东方财富获取指数 {eastmoney_symbol} 行情失败: {e}")
+        return None
+    finally:
+        try:
+            _agent_browser_cli("close")
+        except Exception:
+            pass
 
 
 async def fetch_fund_nav(code: str, force_refresh: bool = False) -> dict | None:
