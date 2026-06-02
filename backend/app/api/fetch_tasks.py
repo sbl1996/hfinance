@@ -7,13 +7,13 @@ from fastapi import APIRouter, HTTPException, Query
 from app.models.schemas import (
     FetchTaskCreate,
     FetchTaskListOut,
+    FetchTaskMarketType,
     FetchTaskOut,
     FetchTaskRunsOut,
     FetchTaskRunSummary,
     FetchTaskToggleRequest,
     FetchTaskUpdate,
     FetchTaskRunStatus,
-    MarketType,
 )
 from app.repositories import fetch_task_repo, fetch_task_run_repo
 from app.services.fetch_task_service import ActiveFetchTaskRunError, enqueue_manual_run
@@ -53,7 +53,7 @@ def _build_task_out(row: dict) -> FetchTaskOut:
         id=row["id"],
         code=row["code"],
         name=row["name"],
-        market=MarketType(row["market"]),
+        market=FetchTaskMarketType(row["market"]),
         enabled=bool(row["enabled"]),
         run_time=row["run_time"],
         weekdays=fetch_task_repo.mask_to_weekdays(row["weekdays_mask"]),

@@ -15,7 +15,7 @@ settings = get_settings()
 
 app = FastAPI(
     title="HFinance - 个人资产管理记账系统",
-    version="0.1.0",
+    version="0.1.1",
     docs_url=None,  # 生产环境关闭 Swagger UI
     redoc_url=None,
 )

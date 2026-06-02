@@ -1,3 +1,5 @@
+export type FetchTaskMarket = 'A_STOCK' | 'HK_STOCK' | 'FUND' | 'US_STOCK' | 'CN_INDEX'
+
 export type FetchTaskRunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED'
 
 export interface FetchTaskRunSummary {
@@ -15,7 +17,7 @@ export interface FetchTask {
   id: number
   code: string
   name: string
-  market: 'A_STOCK' | 'HK_STOCK' | 'FUND'
+  market: FetchTaskMarket
   enabled: boolean
   run_time: string
   weekdays: number[]
@@ -27,7 +29,7 @@ export interface FetchTask {
 export interface FetchTaskCreatePayload {
   code: string
   name: string
-  market: 'A_STOCK' | 'HK_STOCK' | 'FUND'
+  market: FetchTaskMarket
   enabled: boolean
   run_time: string
   weekdays: number[]

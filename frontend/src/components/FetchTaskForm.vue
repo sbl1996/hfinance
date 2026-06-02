@@ -85,12 +85,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { showToast } from 'vant'
-import type { FetchTask, FetchTaskCreatePayload } from '@/types/fetchTask'
+import type { FetchTask, FetchTaskCreatePayload, FetchTaskMarket } from '@/types/fetchTask'
 
 const props = defineProps<{
   show: boolean
   task?: FetchTask | null
-  holdings: Array<{ id: number; code: string; name: string; market: 'A_STOCK' | 'HK_STOCK' | 'FUND' }>
+  targets: Array<{
+    code: string
+    name: string
+    market: FetchTaskMarket
+    sourceLabels: string[]
+  }>
 }>()
 
 const emit = defineEmits<{
@@ -100,7 +105,7 @@ const emit = defineEmits<{
 
 const selectedCode = ref('')
 const selectedName = ref('')
-const selectedMarket = ref<'A_STOCK' | 'HK_STOCK' | 'FUND'>('A_STOCK')
+const selectedMarket = ref<FetchTaskMarket>('A_STOCK')
 const runTime = ref('19:30')
 const weekdays = ref<number[]>([0, 1, 2, 3, 4])
 const enabled = ref(true)
@@ -119,24 +124,41 @@ const weekdayOptions = [
   { value: 6, label: '日' },
 ]
 
-const holdingMap = computed(() => {
-  return new Map(props.holdings.map((holding) => [holding.code, holding]))
+type FetchTaskTargetOption = {
+  code: string
+  name: string
+  market: FetchTaskMarket
+  sourceLabels: string[]
+}
+
+function buildTargetKey(code: string, market: FetchTaskMarket) {
+  return `${market}::${code}`
+}
+
+const targetMap = computed(() => {
+  return new Map(props.targets.map((target) => [buildTargetKey(target.code, target.market), target]))
 })
 
 const selectedHoldingLabel = computed(() => {
-  const holding = props.holdings.find((h) => h.code === selectedCode.value)
-  return holding ? `${holding.name} (${holding.code})` : ''
+  const selected = targetMap.value.get(buildTargetKey(selectedCode.value, selectedMarket.value))
+  if (selected) {
+    return formatTargetLabel(selected)
+  }
+  if (!selectedCode.value) {
+    return ''
+  }
+  return `${selectedName.value} (${selectedCode.value})`
 })
 
 const pickerColumns = computed(() => {
-  return props.holdings.map((h) => ({
-    text: `${h.name} (${h.code})`,
-    value: h.code,
+  return props.targets.map((target) => ({
+    text: formatTargetLabel(target),
+    value: buildTargetKey(target.code, target.market),
   }))
 })
 
 watch(
-  () => [props.show, props.task, props.holdings],
+  () => [props.show, props.task, props.targets],
   () => {
     if (props.task) {
       selectedCode.value = props.task.code
@@ -148,10 +170,10 @@ watch(
       return
     }
 
-    const firstHolding = props.holdings[0]
-    selectedCode.value = firstHolding?.code ?? ''
-    selectedName.value = firstHolding?.name ?? ''
-    selectedMarket.value = firstHolding?.market ?? 'A_STOCK'
+    const firstTarget = props.targets[0]
+    selectedCode.value = firstTarget?.code ?? ''
+    selectedName.value = firstTarget?.name ?? ''
+    selectedMarket.value = firstTarget?.market ?? 'A_STOCK'
     runTime.value = '19:30'
     weekdays.value = [0, 1, 2, 3, 4]
     enabled.value = true
@@ -165,20 +187,33 @@ watch(runTime, (val) => {
   }
 }, { immediate: true })
 
-function handleHoldingChange() {
-  const holding = holdingMap.value.get(selectedCode.value)
-  if (!holding) {
+function formatTargetLabel(target: FetchTaskTargetOption) {
+  const sourceLabel = target.sourceLabels.join('/')
+  return `${target.name} (${target.code}) · ${marketLabel(target.market)} · ${sourceLabel}`
+}
+
+function marketLabel(market: FetchTaskMarket) {
+  if (market === 'HK_STOCK') return '港股'
+  if (market === 'FUND') return '基金'
+  if (market === 'US_STOCK') return '美股'
+  if (market === 'CN_INDEX') return '指数'
+  return 'A股'
+}
+
+function handleTargetChange(targetKey: string) {
+  const target = targetMap.value.get(targetKey)
+  if (!target) {
     return
   }
-  selectedName.value = holding.name
-  selectedMarket.value = holding.market
+  selectedCode.value = target.code
+  selectedName.value = target.name
+  selectedMarket.value = target.market
 }
 
 function onPickerConfirm({ selectedOptions }: any) {
   const option = selectedOptions[0]
   if (option) {
-    selectedCode.value = option.value
-    handleHoldingChange()
+    handleTargetChange(option.value)
   }
   showPicker.value = false
 }

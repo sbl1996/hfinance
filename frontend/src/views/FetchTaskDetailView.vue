@@ -132,7 +132,7 @@
     <FetchTaskForm
       v-model:show="showForm"
       :task="task"
-      :holdings="holdingOptions"
+      :targets="taskTargets"
       @submit="handleEditSubmit"
     />
   </div>
@@ -144,13 +144,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog, showSuccessToast } from 'vant'
 import { useFetchTaskStore } from '@/stores/fetchTask'
 import { useHoldingStore } from '@/stores/holding'
+import { useWatchlistStore } from '@/stores/watchlist'
 import FetchTaskForm from '@/components/FetchTaskForm.vue'
-import type { FetchTaskCreatePayload, FetchTaskRunStatus } from '@/types/fetchTask'
+import type { FetchTaskCreatePayload, FetchTaskMarket, FetchTaskRunStatus } from '@/types/fetchTask'
 
 const route = useRoute()
 const router = useRouter()
 const taskStore = useFetchTaskStore()
 const holdingStore = useHoldingStore()
+const watchlistStore = useWatchlistStore()
 
 const taskId = Number(route.params.id)
 const showForm = ref(false)
@@ -172,18 +174,67 @@ const runNowText = computed(() => {
   return '立刻执行'
 })
 
-const holdingOptions = computed(() => {
-  return holdingStore.holdings.map((holding) => ({
-    id: holding.id,
-    code: holding.code,
-    name: holding.name,
-    market: holding.market,
-  }))
+type TaskTargetOption = {
+  code: string
+  name: string
+  market: FetchTaskMarket
+  sourceLabels: string[]
+}
+
+const taskTargets = computed<TaskTargetOption[]>(() => {
+  const targetMap = new Map<string, TaskTargetOption>()
+  const addTarget = (target: { code: string; name: string; market: FetchTaskMarket }, sourceLabel: string) => {
+    const key = `${target.market}::${target.code}`
+    const existing = targetMap.get(key)
+    if (existing) {
+      if (!existing.sourceLabels.includes(sourceLabel)) {
+        existing.sourceLabels.push(sourceLabel)
+      }
+      return
+    }
+    targetMap.set(key, {
+      code: target.code,
+      name: target.name,
+      market: target.market,
+      sourceLabels: [sourceLabel],
+    })
+  }
+
+  for (const holding of holdingStore.holdings) {
+    addTarget({
+      code: holding.code,
+      name: holding.name,
+      market: holding.market,
+    }, '持仓')
+  }
+
+  for (const item of watchlistStore.items) {
+    addTarget({
+      code: item.code,
+      name: item.name,
+      market: item.market,
+    }, '自选')
+  }
+
+  if (task.value) {
+    const key = `${task.value.market}::${task.value.code}`
+    if (!targetMap.has(key)) {
+      targetMap.set(key, {
+        code: task.value.code,
+        name: task.value.name,
+        market: task.value.market,
+        sourceLabels: ['任务现值'],
+      })
+    }
+  }
+
+  return Array.from(targetMap.values())
 })
 
 onMounted(async () => {
   await Promise.all([
     holdingStore.fetchHoldings(),
+    watchlistStore.fetchWatchlist(),
     taskStore.fetchTasks(),
     taskStore.fetchRuns(taskId),
   ])
@@ -247,6 +298,8 @@ async function handleDelete() {
 function marketLabel(market?: string) {
   if (market === 'HK_STOCK') return '港股'
   if (market === 'FUND') return '基金'
+  if (market === 'US_STOCK') return '美股'
+  if (market === 'CN_INDEX') return '指数'
   if (market === 'A_STOCK') return 'A股'
   return '--'
 }
@@ -457,6 +510,16 @@ function formatDateTime(dateTimeStr?: string | null) {
 .market-badge-fund {
   background: #edf8ee;
   color: #389e0d;
+}
+
+.market-badge-us_stock {
+  background: #fff2e8;
+  color: #fa541c;
+}
+
+.market-badge-cn_index {
+  background: #f3f0ff;
+  color: #531dab;
 }
 
 /* 运行历史区 */

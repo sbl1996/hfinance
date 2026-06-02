@@ -34,6 +34,14 @@ class WatchMarketType(str, Enum):
     CN_INDEX = "CN_INDEX"
 
 
+class FetchTaskMarketType(str, Enum):
+    A_STOCK = "A_STOCK"
+    HK_STOCK = "HK_STOCK"
+    FUND = "FUND"
+    US_STOCK = "US_STOCK"
+    CN_INDEX = "CN_INDEX"
+
+
 class CurrencyType(str, Enum):
     CNY = "CNY"
     HKD = "HKD"
@@ -283,7 +291,7 @@ class DashboardDistribution(BaseModel):
 class FetchTaskBase(BaseModel):
     code: str
     name: str
-    market: MarketType
+    market: FetchTaskMarketType
     enabled: bool = True
     run_time: str = Field(pattern=r"^\d{2}:\d{2}$")
     weekdays: list[int] = Field(min_length=1)
@@ -296,7 +304,7 @@ class FetchTaskCreate(FetchTaskBase):
 class FetchTaskUpdate(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
-    market: Optional[MarketType] = None
+    market: Optional[FetchTaskMarketType] = None
     enabled: Optional[bool] = None
     run_time: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     weekdays: Optional[list[int]] = None
@@ -321,7 +329,7 @@ class FetchTaskOut(BaseModel):
     id: int
     code: str
     name: str
-    market: MarketType
+    market: FetchTaskMarketType
     enabled: bool
     run_time: str
     weekdays: list[int]

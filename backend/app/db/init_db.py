@@ -46,6 +46,7 @@ async def init_database():
     )
     await _migrate_price_cache_currency_check(db)
     await _migrate_watchlist_items_market_check(db)
+    await _migrate_fetch_task_market_check(db)
     await db.commit()
 
 
@@ -111,3 +112,80 @@ async def _migrate_watchlist_items_market_check(db):
         CREATE INDEX IF NOT EXISTS idx_watchlist_items_sort_order ON watchlist_items(sort_order, id);
         """
     )
+
+
+async def _migrate_fetch_task_market_check(db):
+    """重建 fetch_tasks / fetch_task_runs 以允许自选任务市场类型。"""
+    cursor = await db.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'fetch_tasks'"
+    )
+    row = await cursor.fetchone()
+    create_sql = (row[0] if row else "") or ""
+    if "'CN_INDEX'" in create_sql and "'US_STOCK'" in create_sql:
+        return
+
+    await db.execute("PRAGMA foreign_keys = OFF")
+    try:
+        await db.executescript(
+            """
+            ALTER TABLE fetch_task_runs RENAME TO fetch_task_runs_old;
+            ALTER TABLE fetch_tasks RENAME TO fetch_tasks_old;
+
+            CREATE TABLE fetch_tasks (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                code            TEXT    NOT NULL,
+                name            TEXT    NOT NULL,
+                market          TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND', 'US_STOCK', 'CN_INDEX')),
+                enabled         INTEGER NOT NULL DEFAULT 1,
+                run_time        TEXT    NOT NULL,
+                weekdays_mask   INTEGER NOT NULL,
+                created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                UNIQUE(code, market, run_time, weekdays_mask)
+            );
+
+            CREATE TABLE fetch_task_runs (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id         INTEGER NOT NULL,
+                code            TEXT    NOT NULL,
+                name            TEXT    NOT NULL,
+                market          TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND', 'US_STOCK', 'CN_INDEX')),
+                scheduled_for   TEXT    NOT NULL,
+                status          TEXT    NOT NULL CHECK(status IN ('PENDING', 'RUNNING', 'SUCCESS', 'FAILED')),
+                started_at      TEXT,
+                finished_at     TEXT,
+                error_message   TEXT,
+                price_date      TEXT,
+                price_value     REAL,
+                created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (task_id) REFERENCES fetch_tasks(id) ON DELETE CASCADE,
+                UNIQUE(task_id, scheduled_for)
+            );
+
+            INSERT INTO fetch_tasks (id, code, name, market, enabled, run_time, weekdays_mask, created_at, updated_at)
+            SELECT id, code, name, market, enabled, run_time, weekdays_mask, created_at, updated_at
+            FROM fetch_tasks_old;
+
+            INSERT INTO fetch_task_runs (
+                id, task_id, code, name, market, scheduled_for, status,
+                started_at, finished_at, error_message, price_date, price_value, created_at, updated_at
+            )
+            SELECT
+                id, task_id, code, name, market, scheduled_for, status,
+                started_at, finished_at, error_message, price_date, price_value, created_at, updated_at
+            FROM fetch_task_runs_old;
+
+            DROP TABLE fetch_task_runs_old;
+            DROP TABLE fetch_tasks_old;
+
+            CREATE INDEX IF NOT EXISTS idx_fetch_tasks_enabled_time ON fetch_tasks(enabled, run_time);
+            CREATE INDEX IF NOT EXISTS idx_fetch_task_runs_status_scheduled ON fetch_task_runs(status, scheduled_for, id);
+            CREATE INDEX IF NOT EXISTS idx_fetch_task_runs_task_scheduled ON fetch_task_runs(task_id, scheduled_for DESC, id DESC);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_fetch_task_runs_one_active
+            ON fetch_task_runs(task_id)
+            WHERE status IN ('PENDING', 'RUNNING');
+            """
+        )
+    finally:
+        await db.execute("PRAGMA foreign_keys = ON")
