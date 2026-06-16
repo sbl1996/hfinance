@@ -10,22 +10,20 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "🚀 启动 HFinance 开发环境..."
 
 # 启动后端 (FastAPI + Uvicorn)
-echo "📡 启动后端服务 (http://localhost:8000)..."
+echo "📡 启动后端服务 (http://0.0.0.0:8000)..."
 cd "$PROJECT_DIR/backend"
 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
 
 # 启动前端 (Vite dev server)
-echo "🎨 启动前端服务 (http://localhost:5173)..."
+echo "🎨 启动前端服务 (http://0.0.0.0:5173)..."
 cd "$PROJECT_DIR/frontend"
-pnpm dev &
+pnpm dev --host 0.0.0.0 &
 FRONTEND_PID=$!
 
 echo ""
 echo "✅ 开发环境已启动："
-echo "   后端 API:  http://localhost:8000"
-echo "   前端页面:  http://localhost:5173"
-echo "   API 代理:  /api -> http://localhost:8000"
+echo "   API 代理:  /api -> http://0.0.0.0:8000"
 echo ""
 echo "按 Ctrl+C 停止所有服务"
 

@@ -485,24 +485,42 @@ def invalidate_fund_nav_cache() -> None:
     _fund_daily_cache_expires_at = 0.0
 
 
+def fetch_cny_fx_rates() -> dict[str, dict]:
+    """
+    获取主要外汇兑人民币汇率。
+    :return: {"HKDCNY": {"rate": float, "rate_date": str}, "USDCNY": {...}}
+    """
+    try:
+        df = ak.fx_spot_quote()
+        rate_date = datetime.now().strftime("%Y-%m-%d")
+        pair_mapping = {
+            "HKD/CNY": "HKDCNY",
+            "USD/CNY": "USDCNY",
+        }
+        results: dict[str, dict] = {}
+
+        for source_pair, target_pair in pair_mapping.items():
+            row = df[df["货币对"] == source_pair]
+            if row.empty:
+                logger.warning("未找到 %s 汇率数据", source_pair)
+                continue
+
+            rate_row = row.iloc[0]
+            rate = (rate_row["买报价"] + rate_row["卖报价"]) / 2
+            results[target_pair] = {
+                "rate": rate,
+                "rate_date": rate_date,
+            }
+
+        return results
+    except Exception as e:
+        logger.error(f"获取外汇兑人民币汇率失败: {e}")
+        return {}
+
+
 def fetch_hkdcny_rate() -> dict | None:
     """
     获取 HKD/CNY 汇率
     :return: {"rate": float, "rate_date": str} 或 None
     """
-    try:
-        df = ak.fx_spot_quote()
-        row = df[df["货币对"] == "HKD/CNY"]
-        if row.empty:
-            logger.warning("未找到 HKD/CNY 汇率数据")
-            return None
-        # 中行折算价作为汇率
-        row = row.iloc[0]
-        rate = (row['买报价'] + row['卖报价']) / 2
-        return {
-            "rate": rate,
-            "rate_date": datetime.now().strftime("%Y-%m-%d"),
-        }
-    except Exception as e:
-        logger.error(f"获取 HKD/CNY 汇率失败: {e}")
-        return None
+    return fetch_cny_fx_rates().get("HKDCNY")

@@ -10,10 +10,10 @@ import time
 from app.repositories import holding_repo, price_repo, watchlist_repo
 from app.services.market_fetcher import (
     fetch_a_etf,
+    fetch_cny_fx_rates,
     fetch_cn_index,
     fetch_fund_nav,
     fetch_hk_stock,
-    fetch_hkdcny_rate,
     fetch_us_stock,
 )
 
@@ -34,6 +34,34 @@ SOURCE_GROUP_CONCURRENCY: dict[str, int] = {
     "fund": 1,
     "us": 1,
 }
+
+
+async def _refresh_cny_fx_rates() -> None:
+    """单次抓取并写入主要外汇兑人民币汇率。"""
+    rate_results = fetch_cny_fx_rates()
+    if rate_results:
+        for pair, rate_result in rate_results.items():
+            await price_repo.upsert_rate(
+                pair=pair,
+                rate=rate_result["rate"],
+                rate_date=rate_result["rate_date"],
+            )
+        return
+
+    reused_pairs: list[str] = []
+    for pair in ("HKDCNY", "USDCNY"):
+        old_rate = await price_repo.get_latest_rate(pair)
+        if not old_rate:
+            continue
+        await price_repo.upsert_rate(
+            pair=pair,
+            rate=old_rate["rate"],
+            rate_date=old_rate["rate_date"],
+        )
+        reused_pairs.append(pair)
+
+    if reused_pairs:
+        logger.warning("汇率获取失败，沿用上次缓存: %s", ", ".join(reused_pairs))
 
 
 async def _fetch_by_market(code: str, market: str, *, fund_force_refresh: bool = False) -> dict | None:
@@ -58,13 +86,7 @@ async def execute_price_refresh(code: str, market: str, *, fund_force_refresh: b
     """
     # 如果是港股，同时刷新汇率
     if market == "HK_STOCK":
-        rate_result = fetch_hkdcny_rate()
-        if rate_result:
-            await price_repo.upsert_rate(
-                pair="HKDCNY",
-                rate=rate_result["rate"],
-                rate_date=rate_result["rate_date"],
-            )
+        await _refresh_cny_fx_rates()
 
     result = None
     try:
@@ -199,23 +221,7 @@ async def update_all_prices(*, market_type: str | None = None) -> dict:
 
     # 仅在未指定市场或需要刷新港股时更新汇率
     if not market_type or market_type == "HK_STOCK":
-        rate_result = fetch_hkdcny_rate()
-        if rate_result:
-            await price_repo.upsert_rate(
-                pair="HKDCNY",
-                rate=rate_result["rate"],
-                rate_date=rate_result["rate_date"],
-            )
-        else:
-            # 汇率获取失败，标记旧汇率
-            old_rate = await price_repo.get_latest_rate("HKDCNY")
-            if old_rate:
-                await price_repo.upsert_rate(
-                    pair="HKDCNY",
-                    rate=old_rate["rate"],
-                    rate_date=old_rate["rate_date"],
-                )
-                logger.warning("汇率获取失败，沿用上次缓存")
+        await _refresh_cny_fx_rates()
 
     grouped_targets: dict[str, list[dict]] = {}
     for target in targets:

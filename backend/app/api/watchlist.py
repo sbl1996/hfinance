@@ -15,6 +15,7 @@ from app.models.schemas import (
 )
 from app.repositories import price_repo, watchlist_repo
 from app.services.fund_history_import_service import import_fund_history, import_us_stock_history
+from app.services.price_service import _fetch_by_market
 
 router = APIRouter()
 
@@ -30,8 +31,23 @@ async def _enrich_watchlist_item(item: dict) -> WatchlistItemOut:
         previous_price = await price_repo.get_previous_price(item["code"], price_data["price_date"])
         if previous_price and previous_price["price"] > 0:
             out.growth_rate = (price_data["price"] - previous_price["price"]) / previous_price["price"]
+        else:
+            out.growth_rate = await _fetch_watchlist_growth_rate_fallback(item["code"], item["market"])
 
     return out
+
+
+async def _fetch_watchlist_growth_rate_fallback(code: str, market: str) -> float | None:
+    try:
+        result = await _fetch_by_market(code, market)
+    except Exception:
+        return None
+
+    if not result:
+        return None
+
+    growth_rate = result.get("growth_rate")
+    return growth_rate if isinstance(growth_rate, int | float) else None
 
 
 @router.get("", response_model=WatchlistItemListOut)
