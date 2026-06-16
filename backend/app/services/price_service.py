@@ -64,14 +64,31 @@ async def _refresh_cny_fx_rates() -> None:
         logger.warning("汇率获取失败，沿用上次缓存: %s", ", ".join(reused_pairs))
 
 
-async def _fetch_by_market(code: str, market: str, *, fund_force_refresh: bool = False) -> dict | None:
+async def _resolve_fund_currency(code: str, fund_currency: str | None) -> str:
+    if fund_currency:
+        return fund_currency
+
+    for item in [*(await holding_repo.get_all()), *(await watchlist_repo.get_all())]:
+        if item["market"] == "FUND" and item["code"] == code:
+            return item.get("currency") or "CNY"
+    return "CNY"
+
+
+async def _fetch_by_market(
+    code: str,
+    market: str,
+    *,
+    fund_currency: str | None = None,
+    fund_force_refresh: bool = False,
+) -> dict | None:
     """根据市场类型调用对应 fetcher"""
     if market == "HK_STOCK":
         return await asyncio.to_thread(fetch_hk_stock, code)
     elif market == "A_STOCK":
         return await asyncio.to_thread(fetch_a_etf, code)
     elif market == "FUND":
-        return await fetch_fund_nav(code, force_refresh=fund_force_refresh)
+        resolved_currency = await _resolve_fund_currency(code, fund_currency)
+        return await fetch_fund_nav(code, currency=resolved_currency, force_refresh=fund_force_refresh)
     elif market == "US_STOCK":
         return await asyncio.to_thread(fetch_us_stock, code)
     elif market == "CN_INDEX":
@@ -79,7 +96,13 @@ async def _fetch_by_market(code: str, market: str, *, fund_force_refresh: bool =
     return None
 
 
-async def execute_price_refresh(code: str, market: str, *, fund_force_refresh: bool = False) -> dict:
+async def execute_price_refresh(
+    code: str,
+    market: str,
+    *,
+    fund_currency: str | None = None,
+    fund_force_refresh: bool = False,
+) -> dict:
     """
     刷新单个标的的行情
     返回 {"code": str, "updated": bool, "price": float|None}
@@ -90,7 +113,12 @@ async def execute_price_refresh(code: str, market: str, *, fund_force_refresh: b
 
     result = None
     try:
-        result = await _fetch_by_market(code, market, fund_force_refresh=fund_force_refresh)
+        result = await _fetch_by_market(
+            code,
+            market,
+            fund_currency=fund_currency,
+            fund_force_refresh=fund_force_refresh,
+        )
     except Exception as e:
         logger.error(f"抓取 {code} 行情异常: {e}")
 
@@ -119,8 +147,8 @@ async def execute_price_refresh(code: str, market: str, *, fund_force_refresh: b
         }
 
 
-async def update_single_price(code: str, market: str) -> dict:
-    return await execute_price_refresh(code, market)
+async def update_single_price(code: str, market: str, *, fund_currency: str | None = None) -> dict:
+    return await execute_price_refresh(code, market, fund_currency=fund_currency)
 
 
 def _get_source_group(market: str) -> str:
@@ -130,11 +158,17 @@ def _get_source_group(market: str) -> str:
 async def _refresh_target(target: dict, *, fund_force_refresh: bool = False) -> dict:
     code = target["code"]
     market = target["market"]
+    currency = target.get("currency")
     result = None
     previous_price = await price_repo.get_latest_price(code)
 
     try:
-        result = await _fetch_by_market(code, market, fund_force_refresh=fund_force_refresh)
+        result = await _fetch_by_market(
+            code,
+            market,
+            fund_currency=currency,
+            fund_force_refresh=fund_force_refresh,
+        )
     except Exception as e:
         logger.error(f"抓取 {code} 行情异常: {e}")
 
@@ -219,8 +253,12 @@ async def update_all_prices(*, market_type: str | None = None) -> dict:
             "is_trading_day": True,
         }
 
-    # 仅在未指定市场或需要刷新港股时更新汇率
-    if not market_type or market_type == "HK_STOCK":
+    requires_fx_refresh = any(
+        target["market"] in {"HK_STOCK", "US_STOCK"}
+        or (target["market"] == "FUND" and target.get("currency") in {"HKD", "USD"})
+        for target in targets
+    )
+    if requires_fx_refresh:
         await _refresh_cny_fx_rates()
 
     grouped_targets: dict[str, list[dict]] = {}
@@ -266,10 +304,27 @@ async def update_all_prices(*, market_type: str | None = None) -> dict:
 def _merge_refresh_targets(holdings: list[dict], watchlist_items: list[dict]) -> list[dict]:
     merged: list[dict] = []
     seen: set[tuple[str, str]] = set()
+    seen_fund_currency: dict[tuple[str, str], str] = {}
     for item in [*holdings, *watchlist_items]:
         key = (item["code"], item["market"])
+        if item["market"] == "FUND":
+            current_currency = item.get("currency") or "CNY"
+            existing_currency = seen_fund_currency.get(key)
+            if existing_currency and existing_currency != current_currency:
+                logger.warning(
+                    "基金 %s 存在不同币种配置，沿用首次出现的币种 %s，忽略 %s",
+                    item["code"],
+                    existing_currency,
+                    current_currency,
+                )
         if key in seen:
             continue
         seen.add(key)
-        merged.append({"code": item["code"], "market": item["market"]})
+        if item["market"] == "FUND":
+            seen_fund_currency[key] = item.get("currency") or "CNY"
+        merged.append({
+            "code": item["code"],
+            "market": item["market"],
+            "currency": item.get("currency") if item["market"] == "FUND" else None,
+        })
     return merged

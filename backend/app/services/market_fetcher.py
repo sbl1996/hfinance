@@ -385,11 +385,11 @@ def _fetch_cn_index_eastmoney(symbol: str) -> dict | None:
             pass
 
 
-async def fetch_fund_nav(code: str, force_refresh: bool = False) -> dict | None:
+async def fetch_fund_nav(code: str, currency: str = "CNY", force_refresh: bool = False) -> dict | None:
     """
     获取场外基金净值
     :param code: 基金代码，如 "000001"
-    :return: {"price": float, "price_date": str, "currency": "CNY", "growth_rate": float} 或 None
+    :return: {"price": float, "price_date": str, "currency": currency, "growth_rate": float} 或 None
     """
     try:
         df = _get_fund_open_fund_daily_df(force_refresh=force_refresh)
@@ -450,7 +450,7 @@ async def fetch_fund_nav(code: str, force_refresh: bool = False) -> dict | None:
         return {
             "price": nav,
             "price_date": nav_date,
-            "currency": "CNY",
+            "currency": currency,
             "growth_rate": growth_rate,
         }
     except Exception as e:

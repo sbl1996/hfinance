@@ -12,6 +12,15 @@
         placeholder="选择市场"
         @click="showMarketPicker = true"
       />
+      <van-field
+        v-if="form.market === '基金'"
+        v-model="form.currency"
+        is-link
+        readonly
+        label="币种"
+        placeholder="选择基金币种"
+        @click="showCurrencyPicker = true"
+      />
       <div class="form-actions">
         <van-button block type="primary" round @click="handleSubmit">确认</van-button>
         <van-button
@@ -46,6 +55,13 @@
         @cancel="showMarketPicker = false"
       />
     </van-popup>
+    <van-popup v-model:show="showCurrencyPicker" position="bottom" round>
+      <van-picker
+        :columns="currencyColumns"
+        @confirm="onCurrencyConfirm"
+        @cancel="showCurrencyPicker = false"
+      />
+    </van-popup>
   </van-popup>
 </template>
 
@@ -62,7 +78,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
-  submit: [data: { code: string; name: string; market: WatchMarket }]
+  submit: [data: { code: string; name: string; market: WatchMarket; currency: string }]
   delete: [item: WatchlistItem]
   importHistory: [item: WatchlistItem]
 }>()
@@ -72,6 +88,7 @@ watch(() => props.show, (v) => { visible.value = v })
 watch(visible, (v) => { emit('update:show', v) })
 
 const showMarketPicker = ref(false)
+const showCurrencyPicker = ref(false)
 const marketColumns = [
   { text: 'A股', value: 'A_STOCK' },
   { text: '港股', value: 'HK_STOCK' },
@@ -86,11 +103,22 @@ const marketLabels: Record<WatchMarket, string> = {
   US_STOCK: '美股',
   CN_INDEX: '指数',
 }
+const currencyColumns = [
+  { text: '人民币', value: 'CNY' },
+  { text: '港币', value: 'HKD' },
+  { text: '美元', value: 'USD' },
+]
+const currencyLabels: Record<string, string> = {
+  CNY: '人民币',
+  HKD: '港币',
+  USD: '美元',
+}
 
 const form = reactive({
   code: '',
   name: '',
   market: 'A股',
+  currency: '人民币',
 })
 
 const isFundItem = computed(() => props.item?.market === 'FUND' || props.item?.market === 'US_STOCK')
@@ -101,17 +129,31 @@ watch(() => props.item, (item) => {
     form.code = item.code || ''
     form.name = item.name || ''
     form.market = marketLabels[item.market] || item.market || 'A股'
+    form.currency = currencyLabels[item.currency] || item.currency || '人民币'
   } else {
     form.code = ''
     form.name = ''
     form.market = 'A股'
+    form.currency = '人民币'
   }
 }, { immediate: true })
+
+watch(() => form.market, (market) => {
+  if (market !== '基金') {
+    form.currency = '人民币'
+  }
+})
 
 function onMarketConfirm({ selectedValues }: any) {
   const value = selectedValues[0] as WatchMarket
   form.market = marketLabels[value] || value
   showMarketPicker.value = false
+}
+
+function onCurrencyConfirm({ selectedValues }: any) {
+  const value = selectedValues[0] as string
+  form.currency = currencyLabels[value] || value
+  showCurrencyPicker.value = false
 }
 
 function handleSubmit() {
@@ -128,6 +170,7 @@ function handleSubmit() {
     code: form.code.trim(),
     name: form.name.trim(),
     market: marketValue as WatchMarket,
+    currency: marketValue === 'FUND' ? (Object.entries(currencyLabels).find(([_, label]) => label === form.currency)?.[0] || 'CNY') : 'CNY',
   })
 }
 

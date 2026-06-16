@@ -38,8 +38,8 @@ async def create(data: HoldingCreate) -> dict:
     cursor = await db.execute("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM holding_sort_orders")
     next_sort_order = (await cursor.fetchone())[0]
     cursor = await db.execute(
-        "INSERT INTO holdings (code, name, market, quantity, cost_total_cny) VALUES (?, ?, ?, ?, ?)",
-        (data.code, data.name, data.market.value, data.quantity, data.cost_total_cny),
+        "INSERT INTO holdings (code, name, market, currency, quantity, cost_total_cny) VALUES (?, ?, ?, ?, ?, ?)",
+        (data.code, data.name, data.market.value, data.currency.value, data.quantity, data.cost_total_cny),
     )
     await db.execute(
         "INSERT INTO holding_sort_orders (holding_id, sort_order, ignored) VALUES (?, ?, 0)",
@@ -58,6 +58,8 @@ async def update(item_id: int, data: HoldingUpdate) -> dict | None:
         return existing
     if "market" in updates:
         updates["market"] = updates["market"].value
+    if "currency" in updates:
+        updates["currency"] = updates["currency"].value
     set_clause = ", ".join(f"{k} = ?" for k in updates)
     values = list(updates.values()) + [item_id]
     db = await get_db()

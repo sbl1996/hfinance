@@ -37,10 +37,10 @@ async def create(data: WatchlistItemCreate) -> dict:
     next_sort_order = (await cursor.fetchone())[0]
     cursor = await db.execute(
         """
-        INSERT INTO watchlist_items (code, name, market, sort_order)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO watchlist_items (code, name, market, currency, sort_order)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (data.code, data.name, data.market.value, next_sort_order),
+        (data.code, data.name, data.market.value, data.currency.value, next_sort_order),
     )
     await db.commit()
     return await get_by_id(cursor.lastrowid)
@@ -56,6 +56,8 @@ async def update(item_id: int, data: WatchlistItemUpdate) -> dict | None:
         return existing
     if "market" in updates:
         updates["market"] = updates["market"].value
+    if "currency" in updates:
+        updates["currency"] = updates["currency"].value
 
     set_clause = ", ".join(f"{field} = ?" for field in updates)
     values = list(updates.values()) + [item_id]

@@ -8,6 +8,7 @@ from app.models.schemas import (
     DistributionItem,
 )
 from app.repositories import cash_repo, holding_repo, liability_repo, price_repo
+from app.services.currency_service import convert_amount_to_cny, get_latest_cny_rate_map
 from app.services.daily_metrics_service import calculate_daily_metrics
 
 router = APIRouter()
@@ -30,17 +31,16 @@ async def get_overview(request: Request):
     total_investment_mv = 0.0
     total_cost = 0.0
     ignored_market_value = 0.0
-    rate_data = await price_repo.get_latest_rate("HKDCNY")
-    hkdcny_rate = rate_data["rate"] if rate_data else 1.0
+    latest_rate_map = await get_latest_cny_rate_map()
 
     for h in holdings:
         price_data = await price_repo.get_latest_price(h["code"])
         if price_data:
-            holding_market_value = 0.0
-            if h["market"] == "HK_STOCK":
-                holding_market_value = price_data["price"] * h["quantity"] * hkdcny_rate
-            else:
-                holding_market_value = price_data["price"] * h["quantity"]
+            holding_market_value = convert_amount_to_cny(
+                price_data["price"] * h["quantity"],
+                price_data["currency"],
+                latest_rate_map,
+            )
             total_investment_mv += holding_market_value
             if h["ignored"]:
                 ignored_market_value += holding_market_value
@@ -77,16 +77,16 @@ async def get_distribution(request: Request):
 
     holdings = await holding_repo.get_all()
     total_investment_mv = 0.0
-    rate_data = await price_repo.get_latest_rate("HKDCNY")
-    hkdcny_rate = rate_data["rate"] if rate_data else 1.0
+    latest_rate_map = await get_latest_cny_rate_map()
 
     for h in holdings:
         price_data = await price_repo.get_latest_price(h["code"])
         if price_data:
-            if h["market"] == "HK_STOCK":
-                total_investment_mv += price_data["price"] * h["quantity"] * hkdcny_rate
-            else:
-                total_investment_mv += price_data["price"] * h["quantity"]
+            total_investment_mv += convert_amount_to_cny(
+                price_data["price"] * h["quantity"],
+                price_data["currency"],
+                latest_rate_map,
+            )
 
     # 总资产 = 现金 + 投资，用于计算占比
     total = total_cash + total_investment_mv + total_liabilities

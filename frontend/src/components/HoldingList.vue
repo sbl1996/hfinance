@@ -60,7 +60,7 @@
         </div>
         <div class="holding-info-row">
           <span class="info-label">最新价</span>
-          <span class="info-value">{{ h.latest_price ?? '--' }} {{ h.price_currency === 'HKD' ? 'HKD' : '' }}</span>
+          <span class="info-value">{{ formattedPrice(h.latest_price, h.price_currency) }}</span>
         </div>
         <div class="holding-info-row">
           <span class="info-label">累计收益率</span>
@@ -136,6 +136,20 @@ function handleItemClick(holding: any) {
 function growthRateLabel(priceDate?: string | null) {
   const monthDay = formatMonthDay(priceDate)
   return monthDay === '--' ? '涨跌幅' : `${monthDay}涨跌幅`
+}
+
+function formattedPrice(price?: number | null, currency?: string | null) {
+  if (price === null || price === undefined) {
+    return '--'
+  }
+  const displayPrice = price.toFixed(4).replace(/\.?0+$/, '')
+  if (currency === 'USD') {
+    return `$${displayPrice}`
+  }
+  if (currency === 'HKD') {
+    return `${displayPrice} HKD`
+  }
+  return displayPrice
 }
 
 function marketLabel(market?: string | null) {

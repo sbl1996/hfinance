@@ -287,7 +287,7 @@ function openEditForm() {
   showForm.value = true
 }
 
-async function handleFormSubmit(formData: { code: string; name: string; market: any }) {
+async function handleFormSubmit(formData: { code: string; name: string; market: any; currency: string }) {
   await watchlistStore.updateWatchlistItem(watchlistId, formData)
   showForm.value = false
   editingItem.value = null

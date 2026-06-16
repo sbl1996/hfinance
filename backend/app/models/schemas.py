@@ -117,6 +117,7 @@ class HoldingCreate(BaseModel):
     code: str
     name: str
     market: MarketType = MarketType.A_STOCK
+    currency: CurrencyType = CurrencyType.CNY
     quantity: float = 0
     cost_total_cny: float = 0
 
@@ -125,6 +126,7 @@ class HoldingUpdate(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
     market: Optional[MarketType] = None
+    currency: Optional[CurrencyType] = None
     quantity: Optional[float] = None
     cost_total_cny: Optional[float] = None
 
@@ -138,6 +140,7 @@ class HoldingOut(BaseModel):
     code: str
     name: str
     market: MarketType
+    currency: CurrencyType = CurrencyType.CNY
     quantity: float
     cost_total_cny: float
     sort_order: int = 0
@@ -179,12 +182,14 @@ class WatchlistItemCreate(BaseModel):
     code: str
     name: str
     market: WatchMarketType
+    currency: CurrencyType = CurrencyType.CNY
 
 
 class WatchlistItemUpdate(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
     market: Optional[WatchMarketType] = None
+    currency: Optional[CurrencyType] = None
 
 
 class WatchlistItemOut(BaseModel):
@@ -192,6 +197,7 @@ class WatchlistItemOut(BaseModel):
     code: str
     name: str
     market: WatchMarketType
+    currency: CurrencyType = CurrencyType.CNY
     latest_price: Optional[float] = None
     price_currency: Optional[CurrencyType] = None
     price_date: Optional[str] = None
@@ -236,6 +242,7 @@ class PriceHistoryResponse(BaseModel):
     name: str
     unit_cost: float
     market: MarketType
+    currency: CurrencyType = CurrencyType.CNY
     current_price: Optional[float] = None
     price_currency: Optional[CurrencyType] = None
     price_date: Optional[str] = None
@@ -255,6 +262,7 @@ class WatchlistPriceHistoryResponse(BaseModel):
     code: str
     name: str
     market: WatchMarketType
+    currency: CurrencyType = CurrencyType.CNY
     latest_price: Optional[float] = None
     current_price: Optional[float] = None
     price_currency: Optional[CurrencyType] = None

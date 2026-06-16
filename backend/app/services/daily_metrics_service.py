@@ -12,6 +12,7 @@ import logging
 from datetime import datetime
 
 from app.repositories import holding_repo, price_repo
+from app.services.currency_service import convert_amount_to_cny, get_latest_cny_rate_map
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,7 @@ async def calculate_daily_metrics(
         logger.info("无持仓，跳过日盈亏计算")
         return None
 
-    rate_data = await price_repo.get_latest_rate("HKDCNY")
-    hkdcny_rate = rate_data["rate"] if rate_data else 1.0
+    latest_rate_map = await get_latest_cny_rate_map()
 
     total_daily_pnl = 0.0
     total_market_value = 0.0
@@ -51,13 +51,11 @@ async def calculate_daily_metrics(
 
         today_price = today_price_data["price"]
         price_date = today_price_data["price_date"]
+        price_currency = today_price_data["currency"]
         if as_of_date is None or price_date > as_of_date:
             as_of_date = price_date
 
-        if market == "HK_STOCK":
-            market_value_cny = today_price * quantity * hkdcny_rate
-        else:
-            market_value_cny = today_price * quantity
+        market_value_cny = convert_amount_to_cny(today_price * quantity, price_currency, latest_rate_map)
         total_market_value += market_value_cny
 
         daily_pnl = 0.0
@@ -67,10 +65,11 @@ async def calculate_daily_metrics(
             if previous_price_data:
                 previous_price = previous_price_data["price"]
                 # 使用今日持仓数量，当日内调仓会导致偏差
-                if market == "HK_STOCK":
-                    daily_pnl = (today_price - previous_price) * quantity * hkdcny_rate
-                else:
-                    daily_pnl = (today_price - previous_price) * quantity
+                daily_pnl = convert_amount_to_cny(
+                    (today_price - previous_price) * quantity,
+                    price_currency,
+                    latest_rate_map,
+                )
 
         total_daily_pnl += daily_pnl
 

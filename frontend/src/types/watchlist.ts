@@ -5,6 +5,7 @@ export interface WatchlistItem {
   code: string
   name: string
   market: WatchMarket
+  currency: string
   latest_price: number | null
   price_currency: string | null
   price_date: string | null
@@ -21,10 +22,12 @@ export interface WatchlistCreatePayload {
   code: string
   name: string
   market: WatchMarket
+  currency: string
 }
 
 export interface WatchlistUpdatePayload {
   code?: string
   name?: string
   market?: WatchMarket
+  currency?: string
 }

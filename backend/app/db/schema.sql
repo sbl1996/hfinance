@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS holdings (
     code            TEXT    NOT NULL,
     name            TEXT    NOT NULL,
     market          TEXT    NOT NULL DEFAULT 'A_STOCK' CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND')),
+    currency        TEXT    NOT NULL DEFAULT 'CNY' CHECK(currency IN ('CNY', 'HKD', 'USD')),
     quantity        REAL    NOT NULL DEFAULT 0,
     cost_total_cny  REAL    NOT NULL DEFAULT 0,
     created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS watchlist_items (
     code        TEXT    NOT NULL,
     name        TEXT    NOT NULL,
     market      TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND', 'US_STOCK', 'CN_INDEX')),
+    currency    TEXT    NOT NULL DEFAULT 'CNY' CHECK(currency IN ('CNY', 'HKD', 'USD')),
     sort_order  INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))

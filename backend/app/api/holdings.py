@@ -8,6 +8,12 @@ from app.models.schemas import (
     PriceHistoryResponse, PriceHistoryItem,
 )
 from app.repositories import holding_repo, price_repo
+from app.services.currency_service import (
+    ensure_fund_currency_consistency,
+    get_cny_rate_for_date,
+    get_cny_rate_ranges,
+    get_latest_cny_rate_map,
+)
 from app.services.fund_history_import_service import import_fund_history
 from app.services.daily_metrics_service import calculate_daily_metrics
 
@@ -20,36 +26,29 @@ async def _enrich_holding(h: dict) -> HoldingOut:
 
     # 获取最新价格缓存
     price_data = await price_repo.get_latest_price(h["code"])
-    rate_data = await price_repo.get_latest_rate("HKDCNY")
-
-    hkdcny_rate = rate_data["rate"] if rate_data else 1.0
+    latest_rate_map = await get_latest_cny_rate_map()
+    hkdcny_rate = latest_rate_map["HKD"]
     out.hkdcny_rate = hkdcny_rate
 
     if price_data:
         out.latest_price = price_data["price"]
         out.price_currency = CurrencyType(price_data["currency"])
         out.price_date = price_data["price_date"]
+        price_currency = str(price_data["currency"])
+        cny_rate = latest_rate_map.get(price_currency, 1.0)
 
         # 动态计算涨跌幅：基于 price_cache 中最新价与前一日价格
         prev_price_data = await price_repo.get_previous_price(h["code"], price_data["price_date"])
         if prev_price_data and prev_price_data["price"] > 0:
             price_diff = price_data["price"] - prev_price_data["price"]
             out.growth_rate = price_diff / prev_price_data["price"]
-            if h["market"] == MarketType.HK_STOCK.value:
-                out.growth_pnl_cny = price_diff * h["quantity"] * hkdcny_rate
-            else:
-                out.growth_pnl_cny = price_diff * h["quantity"]
+            out.growth_pnl_cny = price_diff * h["quantity"] * cny_rate
         else:
             out.growth_rate = None
             out.growth_pnl_cny = None
 
         # 计算市值(CNY)
-        if h["market"] == MarketType.HK_STOCK.value:
-            # 港股市值 = 港股价格 × 数量 × HKD/CNY汇率
-            out.market_value_cny = price_data["price"] * h["quantity"] * hkdcny_rate
-        else:
-            # A股/基金市值 = 价格 × 数量
-            out.market_value_cny = price_data["price"] * h["quantity"]
+        out.market_value_cny = price_data["price"] * h["quantity"] * cny_rate
 
         # 计算盈亏
         out.pnl_cny = out.market_value_cny - h["cost_total_cny"]
@@ -91,16 +90,43 @@ async def list_holdings():
 @router.post("", response_model=HoldingOut)
 async def create_holding(data: HoldingCreate):
     """新增持仓"""
+    try:
+        await ensure_fund_currency_consistency(
+            code=data.code,
+            market=data.market.value,
+            currency=data.currency.value,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     item = await holding_repo.create(data)
+    if item["market"] == MarketType.FUND.value:
+        await price_repo.update_price_currency(item["code"], item.get("currency", "CNY"))
     return await _enrich_holding(item)
 
 
 @router.put("/{item_id}", response_model=HoldingOut)
 async def update_holding(item_id: int, data: HoldingUpdate):
     """修改持仓"""
-    item = await holding_repo.update(item_id, data)
-    if not item:
+    existing = await holding_repo.get_by_id(item_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="持仓不存在")
+
+    next_code = data.code if data.code is not None else existing["code"]
+    next_market = data.market.value if data.market is not None else existing["market"]
+    next_currency = data.currency.value if data.currency is not None else existing.get("currency", "CNY")
+    try:
+        await ensure_fund_currency_consistency(
+            code=next_code,
+            market=next_market,
+            currency=next_currency,
+            exclude_holding_id=item_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    item = await holding_repo.update(item_id, data)
+    if item["market"] == MarketType.FUND.value:
+        await price_repo.update_price_currency(item["code"], item.get("currency", "CNY"))
     return await _enrich_holding(item)
 
 
@@ -148,7 +174,7 @@ async def import_holding_history(item_id: int):
         raise HTTPException(status_code=400, detail="只有基金持仓支持全量导入")
 
     try:
-        result = await import_fund_history(code=holding["code"])
+        result = await import_fund_history(code=holding["code"], currency=holding.get("currency", "CNY"))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -180,6 +206,7 @@ async def get_holding_price_history(item_id: int):
             name=holding["name"],
             unit_cost=unit_cost,
             market=MarketType(holding["market"]),
+            currency=CurrencyType(holding.get("currency") or "CNY"),
             current_price=enriched.latest_price,
             price_currency=enriched.price_currency,
             price_date=enriched.price_date,
@@ -194,18 +221,24 @@ async def get_holding_price_history(item_id: int):
             empty=True,
         )
 
-    rates: dict[str, float] = {}
-    if holding["market"] == MarketType.HK_STOCK.value:
+    rate_ranges: dict[str, dict[str, float]] = {}
+    fallback_rate_map = await get_latest_cny_rate_map()
+    currencies = {str(record["currency"]) for record in raw_history if str(record["currency"]) != "CNY"}
+    if currencies:
         start_date = raw_history[0]["price_date"]
         end_date = raw_history[-1]["price_date"]
-        rates = await price_repo.get_rates_in_range("HKDCNY", start_date, end_date)
+        rate_ranges = await get_cny_rate_ranges(currencies, start_date, end_date)
 
     history = []
     for record in raw_history:
         price = record["price"]
-        if holding["market"] == MarketType.HK_STOCK.value:
-            rate = rates.get(record["price_date"], 1.0)
-            price = price * rate
+        rate = get_cny_rate_for_date(
+            str(record["currency"]),
+            record["price_date"],
+            rate_ranges,
+            fallback_rate_map,
+        )
+        price = price * rate
 
         yield_rate = None
         if unit_cost > 0:
@@ -222,6 +255,7 @@ async def get_holding_price_history(item_id: int):
         name=holding["name"],
         unit_cost=round(unit_cost, 4),
         market=MarketType(holding["market"]),
+        currency=CurrencyType(holding.get("currency") or "CNY"),
         current_price=enriched.latest_price,
         price_currency=enriched.price_currency,
         price_date=enriched.price_date,

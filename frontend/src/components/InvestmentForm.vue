@@ -30,6 +30,15 @@
         placeholder="选择市场"
         @click="showMarketPicker = true"
       />
+      <van-field
+        v-if="form.market === '基金'"
+        v-model="form.currency"
+        is-link
+        readonly
+        label="币种"
+        placeholder="选择基金币种"
+        @click="showCurrencyPicker = true"
+      />
 
       <template v-if="investmentType === 'HOLDING'">
         <van-field
@@ -72,6 +81,13 @@
         @cancel="showMarketPicker = false"
       />
     </van-popup>
+    <van-popup v-model:show="showCurrencyPicker" position="bottom" round>
+      <van-picker
+        :columns="currencyColumns"
+        @confirm="onCurrencyConfirm"
+        @cancel="showCurrencyPicker = false"
+      />
+    </van-popup>
   </van-popup>
 </template>
 
@@ -102,6 +118,7 @@ watch(visible, (value) => emit('update:show', value))
 
 const investmentType = ref<InvestmentType>('HOLDING')
 const showMarketPicker = ref(false)
+const showCurrencyPicker = ref(false)
 const allMarketColumns = [
   { text: 'A股', value: 'A_STOCK' },
   { text: '港股', value: 'HK_STOCK' },
@@ -122,11 +139,22 @@ const marketLabels: Record<WatchMarket, string> = {
   US_STOCK: '美股',
   CN_INDEX: '指数',
 }
+const currencyColumns = [
+  { text: '人民币', value: 'CNY' },
+  { text: '港币', value: 'HKD' },
+  { text: '美元', value: 'USD' },
+]
+const currencyLabels: Record<string, string> = {
+  CNY: '人民币',
+  HKD: '港币',
+  USD: '美元',
+}
 
 const form = reactive({
   code: '',
   name: '',
   market: 'A股',
+  currency: '人民币',
   quantity: '',
   unit_price: '',
   cost_total_cny: '',
@@ -137,6 +165,12 @@ const syncingPriceFields = ref(false)
 watch(investmentType, (type) => {
   if (type === 'HOLDING' && ['美股', '指数'].includes(form.market)) {
     form.market = 'A股'
+  }
+})
+
+watch(() => form.market, (market) => {
+  if (market !== '基金') {
+    form.currency = '人民币'
   }
 })
 
@@ -177,6 +211,7 @@ function resetForm() {
   form.code = ''
   form.name = ''
   form.market = 'A股'
+  form.currency = '人民币'
   form.quantity = ''
   form.unit_price = ''
   form.cost_total_cny = ''
@@ -223,6 +258,12 @@ function onMarketConfirm({ selectedValues }: any) {
   showMarketPicker.value = false
 }
 
+function onCurrencyConfirm({ selectedValues }: any) {
+  const value = selectedValues[0] as string
+  form.currency = currencyLabels[value] || value
+  showCurrencyPicker.value = false
+}
+
 function handleSubmit() {
   if (!form.code.trim()) {
     showToast('请输入代码')
@@ -234,6 +275,7 @@ function handleSubmit() {
   }
 
   const marketValue = Object.entries(marketLabels).find(([_, label]) => label === form.market)?.[0] || 'A_STOCK'
+  const currencyValue = Object.entries(currencyLabels).find(([_, label]) => label === form.currency)?.[0] || 'CNY'
 
   if (investmentType.value === 'WATCH') {
     emit('submit', {
@@ -242,6 +284,7 @@ function handleSubmit() {
         code: form.code.trim(),
         name: form.name.trim(),
         market: marketValue,
+        currency: marketValue === 'FUND' ? currencyValue : 'CNY',
       },
     })
     return
@@ -253,6 +296,7 @@ function handleSubmit() {
       code: form.code.trim(),
       name: form.name.trim(),
       market: marketValue,
+      currency: marketValue === 'FUND' ? currencyValue : 'CNY',
       quantity: parseFloat(form.quantity) || 0,
       cost_total_cny: parseFloat(form.cost_total_cny) || 0,
     },

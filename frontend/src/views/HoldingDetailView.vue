@@ -43,8 +43,7 @@
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">最新价</span>
-            <span class="info-value">{{ data.current_price ?? '--' }}
-              {{ data.price_currency === 'HKD' ? 'HKD' : '' }}</span>
+            <span class="info-value">{{ formattedPrice(data.current_price, data.price_currency) }}</span>
           </div>
           <div class="info-row">
             <span class="info-label">持有数量</span>
@@ -160,6 +159,20 @@ function growthRateLabel(priceDate?: string | null) {
 function formatSignedMoney(value: number | null | undefined) {
   const amount = value ?? 0
   return `${amount > 0 ? '+' : ''}${formatMoney(amount)}`
+}
+
+function formattedPrice(price?: number | null, currency?: string | null) {
+  if (price === null || price === undefined) {
+    return '--'
+  }
+  const displayPrice = price.toFixed(4).replace(/\.?0+$/, '')
+  if (currency === 'USD') {
+    return `$${displayPrice}`
+  }
+  if (currency === 'HKD') {
+    return `${displayPrice} HKD`
+  }
+  return displayPrice
 }
 
 function formatDateToEST(date: Date): string {
@@ -296,6 +309,7 @@ async function openEditForm() {
     code: data.value.code,
     name: data.value.name,
     market: data.value.market,
+    currency: data.value.currency,
     quantity: data.value.quantity,
     cost_total_cny: data.value.cost_total_cny,
     ignored: holding?.ignored ?? false,

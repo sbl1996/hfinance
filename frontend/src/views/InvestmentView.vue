@@ -262,14 +262,14 @@ async function handleRefreshSingle(holding: any) {
   if (sortMode.value || refreshingAll.value || refreshingFunds.value) {
     return
   }
-  await holdingStore.refreshSingle(holding.code, holding.market)
+  await holdingStore.refreshSingle(holding.code, holding.market, holding.currency)
 }
 
 async function handleRefreshWatchItem(item: any) {
   if (refreshingAll.value || refreshingFunds.value) {
     return
   }
-  await watchlistStore.refreshSingle(item.code, item.market)
+  await watchlistStore.refreshSingle(item.code, item.market, item.currency)
 }
 
 async function handleRefreshMarket() {

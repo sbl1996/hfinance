@@ -48,6 +48,16 @@ async def upsert_price(code: str, price: float, currency: str, price_date: str, 
     return await get_latest_price(code)
 
 
+async def update_price_currency(code: str, currency: str) -> None:
+    """批量更新某标的全部历史价格的币种标签。"""
+    db = await get_db()
+    await db.execute(
+        "UPDATE price_cache SET currency = ? WHERE code = ?",
+        (currency, code),
+    )
+    await db.commit()
+
+
 async def get_all_latest_prices() -> list[dict]:
     """获取所有标的的最新缓存价格"""
     db = await get_db()

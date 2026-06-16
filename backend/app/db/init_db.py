@@ -44,10 +44,23 @@ async def init_database():
             market = COALESCE(market, 'A_STOCK')
         """
     )
+    await _migrate_holdings_currency_column(db)
     await _migrate_price_cache_currency_check(db)
     await _migrate_watchlist_items_market_check(db)
+    await _migrate_watchlist_items_currency_column(db)
     await _migrate_fetch_task_market_check(db)
     await db.commit()
+
+
+async def _migrate_holdings_currency_column(db):
+    """为 holdings 增加 currency 列。"""
+    cursor = await db.execute("PRAGMA table_info(holdings)")
+    columns = {row[1] for row in await cursor.fetchall()}
+    if "currency" in columns:
+        return
+    await db.execute(
+        "ALTER TABLE holdings ADD COLUMN currency TEXT NOT NULL DEFAULT 'CNY'"
+    )
 
 
 async def _migrate_price_cache_currency_check(db):
@@ -101,16 +114,28 @@ async def _migrate_watchlist_items_market_check(db):
             code        TEXT    NOT NULL,
             name        TEXT    NOT NULL,
             market      TEXT    NOT NULL CHECK(market IN ('A_STOCK', 'HK_STOCK', 'FUND', 'US_STOCK', 'CN_INDEX')),
+            currency    TEXT    NOT NULL DEFAULT 'CNY' CHECK(currency IN ('CNY', 'HKD', 'USD')),
             sort_order  INTEGER NOT NULL DEFAULT 0,
             created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
             updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
         );
-        INSERT INTO watchlist_items (id, code, name, market, sort_order, created_at, updated_at)
-        SELECT id, code, name, market, sort_order, created_at, updated_at
+        INSERT INTO watchlist_items (id, code, name, market, currency, sort_order, created_at, updated_at)
+        SELECT id, code, name, market, 'CNY', sort_order, created_at, updated_at
         FROM watchlist_items_old;
         DROP TABLE watchlist_items_old;
         CREATE INDEX IF NOT EXISTS idx_watchlist_items_sort_order ON watchlist_items(sort_order, id);
         """
+    )
+
+
+async def _migrate_watchlist_items_currency_column(db):
+    """为 watchlist_items 增加 currency 列。"""
+    cursor = await db.execute("PRAGMA table_info(watchlist_items)")
+    columns = {row[1] for row in await cursor.fetchall()}
+    if "currency" in columns:
+        return
+    await db.execute(
+        "ALTER TABLE watchlist_items ADD COLUMN currency TEXT NOT NULL DEFAULT 'CNY'"
     )
 
 

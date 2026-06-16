@@ -9,6 +9,7 @@ export interface PriceHistoryResponse {
   name: string
   unit_cost: number
   market: string
+  currency: string
   current_price: number | null
   price_currency: string | null
   price_date: string | null

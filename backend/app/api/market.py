@@ -16,18 +16,18 @@ async def refresh_market(market: str | None = None):
 
 
 @router.post("/refresh/single")
-async def refresh_single_market_query(code: str, market: str = "HK_STOCK"):
+async def refresh_single_market_query(code: str, market: str = "HK_STOCK", currency: str | None = None):
     """手动刷新单个标的的行情（query 参数形式，避免 path 中的 . 被反向代理拦截）"""
-    result = await update_single_price(code, market)
+    result = await update_single_price(code, market, fund_currency=currency)
     if not result["updated"]:
         raise HTTPException(status_code=502, detail=f"标的 {code} 行情获取失败")
     return result
 
 
 @router.post("/refresh/{code}")
-async def refresh_single_market(code: str, market: str = "HK_STOCK"):
+async def refresh_single_market(code: str, market: str = "HK_STOCK", currency: str | None = None):
     """手动刷新单个标的的行情（兼容旧 path 参数形式）"""
-    result = await update_single_price(code, market)
+    result = await update_single_price(code, market, fund_currency=currency)
     if not result["updated"]:
         raise HTTPException(status_code=502, detail=f"标的 {code} 行情获取失败")
     return result

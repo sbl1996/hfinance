@@ -39,10 +39,10 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     await fetchWatchlist()
   }
 
-  async function refreshSingle(code: string, market: string) {
+  async function refreshSingle(code: string, market: string, currency?: string) {
     refreshingCodes.value.add(code)
     try {
-      await request.post('/market/refresh/single', null, { params: { code, market } })
+      await request.post('/market/refresh/single', null, { params: { code, market, currency } })
       await fetchWatchlist()
     } finally {
       refreshingCodes.value.delete(code)

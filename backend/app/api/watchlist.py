@@ -14,6 +14,7 @@ from app.models.schemas import (
     WatchMarketType,
 )
 from app.repositories import price_repo, watchlist_repo
+from app.services.currency_service import ensure_fund_currency_consistency
 from app.services.fund_history_import_service import import_fund_history, import_us_stock_history
 from app.services.price_service import _fetch_by_market
 
@@ -32,14 +33,18 @@ async def _enrich_watchlist_item(item: dict) -> WatchlistItemOut:
         if previous_price and previous_price["price"] > 0:
             out.growth_rate = (price_data["price"] - previous_price["price"]) / previous_price["price"]
         else:
-            out.growth_rate = await _fetch_watchlist_growth_rate_fallback(item["code"], item["market"])
+            out.growth_rate = await _fetch_watchlist_growth_rate_fallback(
+                item["code"],
+                item["market"],
+                item.get("currency"),
+            )
 
     return out
 
 
-async def _fetch_watchlist_growth_rate_fallback(code: str, market: str) -> float | None:
+async def _fetch_watchlist_growth_rate_fallback(code: str, market: str, currency: str | None) -> float | None:
     try:
-        result = await _fetch_by_market(code, market)
+        result = await _fetch_by_market(code, market, fund_currency=currency)
     except Exception:
         return None
 
@@ -59,7 +64,17 @@ async def list_watchlist():
 
 @router.post("", response_model=WatchlistItemOut)
 async def create_watchlist_item(data: WatchlistItemCreate):
+    try:
+        await ensure_fund_currency_consistency(
+            code=data.code,
+            market=data.market.value,
+            currency=data.currency.value,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     item = await watchlist_repo.create(data)
+    if item["market"] == MarketType.FUND.value:
+        await price_repo.update_price_currency(item["code"], item.get("currency", "CNY"))
     return await _enrich_watchlist_item(item)
 
 
@@ -73,9 +88,26 @@ async def get_watchlist_item(item_id: int):
 
 @router.put("/{item_id}", response_model=WatchlistItemOut)
 async def update_watchlist_item(item_id: int, data: WatchlistItemUpdate):
-    item = await watchlist_repo.update(item_id, data)
-    if not item:
+    existing = await watchlist_repo.get_by_id(item_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="自选标的不存在")
+
+    next_code = data.code if data.code is not None else existing["code"]
+    next_market = data.market.value if data.market is not None else existing["market"]
+    next_currency = data.currency.value if data.currency is not None else existing.get("currency", "CNY")
+    try:
+        await ensure_fund_currency_consistency(
+            code=next_code,
+            market=next_market,
+            currency=next_currency,
+            exclude_watchlist_id=item_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    item = await watchlist_repo.update(item_id, data)
+    if item["market"] == MarketType.FUND.value:
+        await price_repo.update_price_currency(item["code"], item.get("currency", "CNY"))
     return await _enrich_watchlist_item(item)
 
 
@@ -95,7 +127,7 @@ async def import_watchlist_history(item_id: int):
 
     try:
         if item["market"] == MarketType.FUND.value:
-            result = await import_fund_history(code=item["code"])
+            result = await import_fund_history(code=item["code"], currency=item.get("currency", "CNY"))
         elif item["market"] == "US_STOCK":
             result = await import_us_stock_history(code=item["code"])
         else:
@@ -127,6 +159,7 @@ async def get_watchlist_price_history(item_id: int):
             code=enriched.code,
             name=enriched.name,
             market=enriched.market,
+            currency=enriched.currency,
             latest_price=enriched.latest_price,
             current_price=enriched.latest_price,
             price_currency=enriched.price_currency,
@@ -160,6 +193,7 @@ async def get_watchlist_price_history(item_id: int):
         code=enriched.code,
         name=enriched.name,
         market=enriched.market,
+        currency=enriched.currency,
         latest_price=enriched.latest_price,
         current_price=enriched.latest_price,
         price_currency=enriched.price_currency,
