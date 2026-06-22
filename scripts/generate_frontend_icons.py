@@ -23,7 +23,12 @@ TARGETS = {
 def fit_on_transparent_canvas(source: Image.Image, size: int) -> Image.Image:
     """Resize source into a square transparent canvas without losing alpha."""
     image = source.convert("RGBA")
-    image.thumbnail((size, size), Image.Resampling.LANCZOS)
+    scale = min(size / image.width, size / image.height)
+    resized_dimensions = (
+        max(1, round(image.width * scale)),
+        max(1, round(image.height * scale)),
+    )
+    image = image.resize(resized_dimensions, Image.Resampling.LANCZOS)
 
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     offset = ((size - image.width) // 2, (size - image.height) // 2)
