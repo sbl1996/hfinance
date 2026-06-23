@@ -48,6 +48,12 @@ class CurrencyType(str, Enum):
     USD = "USD"
 
 
+class IndexImportPrefixType(str, Enum):
+    SZ = "SZ"
+    SH = "SH"
+    CSI = "CSI"
+
+
 class FetchTaskRunStatus(str, Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"

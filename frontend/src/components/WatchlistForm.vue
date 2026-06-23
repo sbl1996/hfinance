@@ -24,7 +24,7 @@
       <div class="form-actions">
         <van-button block type="primary" round @click="handleSubmit">确认</van-button>
         <van-button
-          v-if="item && isFundItem"
+          v-if="item && supportsHistoryImport"
           block
           round
           plain
@@ -121,7 +121,11 @@ const form = reactive({
   currency: '人民币',
 })
 
-const isFundItem = computed(() => props.item?.market === 'FUND' || props.item?.market === 'US_STOCK')
+const supportsHistoryImport = computed(() => (
+  props.item?.market === 'FUND'
+  || props.item?.market === 'US_STOCK'
+  || props.item?.market === 'CN_INDEX'
+))
 const importingHistory = computed(() => Boolean(props.importingHistory))
 
 watch(() => props.item, (item) => {

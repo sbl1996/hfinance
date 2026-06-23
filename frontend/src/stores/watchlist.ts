@@ -2,7 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import request from '@/utils/request'
 import { showSuccessToast } from 'vant'
-import type { WatchlistCreatePayload, WatchlistItem, WatchlistUpdatePayload } from '@/types/watchlist'
+import type {
+  IndexImportPrefixType,
+  WatchlistCreatePayload,
+  WatchlistItem,
+  WatchlistUpdatePayload,
+} from '@/types/watchlist'
 
 export const useWatchlistStore = defineStore('watchlist', () => {
   const items = ref<WatchlistItem[]>([])
@@ -49,8 +54,10 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     }
   }
 
-  async function importFundHistory(id: number) {
-    const result: any = await request.post(`/watchlist/${id}/import-history`)
+  async function importHistory(id: number, indexPrefixType?: IndexImportPrefixType) {
+    const result: any = await request.post(`/watchlist/${id}/import-history`, null, {
+      params: indexPrefixType ? { index_prefix_type: indexPrefixType } : undefined,
+    })
     showSuccessToast(result.detail || '全量导入完成')
     await fetchWatchlist()
     return result
@@ -71,7 +78,7 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     updateWatchlistItem,
     deleteWatchlistItem,
     refreshSingle,
-    importFundHistory,
+    importHistory,
     fetchPriceHistory,
   }
 })

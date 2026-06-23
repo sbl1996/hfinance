@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import (
     CurrencyType,
+    IndexImportPrefixType,
     MarketType,
     WatchlistItemCreate,
     WatchlistItemListOut,
@@ -15,7 +16,11 @@ from app.models.schemas import (
 )
 from app.repositories import price_repo, watchlist_repo
 from app.services.currency_service import ensure_fund_currency_consistency
-from app.services.fund_history_import_service import import_fund_history, import_us_stock_history
+from app.services.fund_history_import_service import (
+    import_cn_index_history,
+    import_fund_history,
+    import_us_stock_history,
+)
 from app.services.price_service import _fetch_by_market
 
 router = APIRouter()
@@ -120,7 +125,7 @@ async def delete_watchlist_item(item_id: int):
 
 
 @router.post("/{item_id}/import-history")
-async def import_watchlist_history(item_id: int):
+async def import_watchlist_history(item_id: int, index_prefix_type: IndexImportPrefixType | None = None):
     item = await watchlist_repo.get_by_id(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="自选标的不存在")
@@ -130,8 +135,12 @@ async def import_watchlist_history(item_id: int):
             result = await import_fund_history(code=item["code"], currency=item.get("currency", "CNY"))
         elif item["market"] == "US_STOCK":
             result = await import_us_stock_history(code=item["code"])
+        elif item["market"] == WatchMarketType.CN_INDEX.value:
+            if index_prefix_type is None:
+                raise HTTPException(status_code=400, detail="指数全量导入需要指定指数类型")
+            result = await import_cn_index_history(code=item["code"], prefix_type=index_prefix_type)
         else:
-            raise HTTPException(status_code=400, detail="只有基金和美股自选标的支持全量导入")
+            raise HTTPException(status_code=400, detail="只有基金、美股和指数自选标的支持全量导入")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

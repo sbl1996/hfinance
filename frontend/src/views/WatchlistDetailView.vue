@@ -77,6 +77,16 @@
       @delete="handleDeleteFromForm"
       @import-history="handleImportHistory"
     />
+
+    <van-action-sheet
+      v-model:show="showIndexImportSheet"
+      title="选择指数类型"
+      :actions="indexImportActions"
+      cancel-text="取消"
+      close-on-click-action
+      @cancel="pendingIndexImportItem = null"
+      @select="handleIndexImportAction"
+    />
   </div>
 </template>
 
@@ -87,7 +97,7 @@ import { showConfirmDialog } from 'vant'
 import { createChart, ColorType, AreaSeries, LineSeries } from 'lightweight-charts'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { formatMonthDay, formatPercent, pnlColorClass } from '@/utils/format'
-import type { WatchlistItem } from '@/types/watchlist'
+import type { IndexImportPrefixType, WatchlistItem } from '@/types/watchlist'
 import WatchlistForm from '@/components/WatchlistForm.vue'
 
 const route = useRoute()
@@ -114,6 +124,8 @@ let chart: ReturnType<typeof createChart> | null = null
 const showForm = ref(false)
 const editingItem = ref<WatchlistItem | null>(null)
 const importingHistory = ref(false)
+const showIndexImportSheet = ref(false)
+const pendingIndexImportItem = ref<WatchlistItem | null>(null)
 
 const pageTitle = computed(() => data.value?.name ?? '自选详情')
 
@@ -132,8 +144,14 @@ function growthRateLabel(priceDate?: string | null) {
 }
 
 function supportsHistoryImport(market?: string | null) {
-  return market === 'FUND' || market === 'US_STOCK'
+  return market === 'FUND' || market === 'US_STOCK' || market === 'CN_INDEX'
 }
+
+const indexImportActions: Array<{ name: string; value: IndexImportPrefixType }> = [
+  { name: '深交所（sz）', value: 'SZ' },
+  { name: '上交所（sh）', value: 'SH' },
+  { name: '中信指数（csi）', value: 'CSI' },
+]
 
 function formatDateToEST(date: Date): string {
   const y = date.getFullYear()
@@ -312,9 +330,27 @@ async function handleDeleteFromForm(item: WatchlistItem) {
 }
 
 async function handleImportHistory(item: WatchlistItem) {
+  if (item.market === 'CN_INDEX') {
+    pendingIndexImportItem.value = item
+    showIndexImportSheet.value = true
+    return
+  }
+
+  await importHistoryForItem(item)
+}
+
+async function handleIndexImportAction(action: { value: IndexImportPrefixType }) {
+  const item = pendingIndexImportItem.value
+  showIndexImportSheet.value = false
+  pendingIndexImportItem.value = null
+  if (!item) return
+  await importHistoryForItem(item, action.value)
+}
+
+async function importHistoryForItem(item: WatchlistItem, indexPrefixType?: IndexImportPrefixType) {
   importingHistory.value = true
   try {
-    await watchlistStore.importFundHistory(item.id)
+    await watchlistStore.importHistory(item.id, indexPrefixType)
     await fetchData()
   } finally {
     importingHistory.value = false

@@ -2,6 +2,7 @@
 
 import akshare as ak
 
+from app.models.schemas import IndexImportPrefixType
 from app.repositories import price_repo
 
 
@@ -16,6 +17,26 @@ def fetch_us_stock_history(code: str):
     df = ak.index_us_stock_sina(symbol=code)
     if df.empty:
         raise ValueError(f"美股 {code} 未获取到历史行情")
+    return df
+
+
+def build_cn_index_symbol(code: str, prefix_type: IndexImportPrefixType) -> str:
+    normalized_code = str(code).strip()
+    if not normalized_code:
+        raise ValueError("指数代码不能为空")
+
+    return f"{prefix_type.value.lower()}{normalized_code.lower()}"
+
+
+def fetch_cn_index_history(code: str, prefix_type: IndexImportPrefixType):
+    symbol = build_cn_index_symbol(code, prefix_type)
+    df = ak.stock_zh_index_daily_em(
+        symbol=symbol,
+        start_date="20200101",
+        end_date="20500101",
+    )
+    if df.empty:
+        raise ValueError(f"指数 {code} 未获取到历史行情")
     return df
 
 
@@ -45,7 +66,7 @@ def load_daily_closes_from_dataframe(df) -> dict[str, float]:
     required_columns = {"date", "close"}
     missing_columns = required_columns - set(df.columns)
     if missing_columns:
-        raise ValueError(f"美股历史数据缺少必要列: {', '.join(sorted(missing_columns))}")
+        raise ValueError(f"历史数据缺少必要列: {', '.join(sorted(missing_columns))}")
 
     for row_no, (_, row) in enumerate(df.iterrows(), start=2):
         date_value = row.get("date")
@@ -92,6 +113,39 @@ async def import_fund_history(code: str, currency: str = "CNY", source: str = "a
 
 async def import_us_stock_history(code: str, currency: str = "USD", source: str = "ak_share") -> dict:
     df = fetch_us_stock_history(code)
+    daily_prices = load_daily_closes_from_dataframe(df)
+    if not daily_prices:
+        raise ValueError("抓取结果中没有可导入的数据")
+
+    sorted_dates = sorted(daily_prices.keys())
+    inserted = 0
+    for date_str in sorted_dates:
+        await price_repo.upsert_price(
+            code=code,
+            price=daily_prices[date_str],
+            currency=currency,
+            price_date=date_str,
+            source=source,
+        )
+        inserted += 1
+
+    return {
+        "code": code,
+        "currency": currency,
+        "inserted": inserted,
+        "date_from": sorted_dates[0],
+        "date_to": sorted_dates[-1],
+        "latest_price": daily_prices[sorted_dates[-1]],
+    }
+
+
+async def import_cn_index_history(
+    code: str,
+    prefix_type: IndexImportPrefixType,
+    currency: str = "CNY",
+    source: str = "ak_share",
+) -> dict:
+    df = fetch_cn_index_history(code, prefix_type)
     daily_prices = load_daily_closes_from_dataframe(df)
     if not daily_prices:
         raise ValueError("抓取结果中没有可导入的数据")

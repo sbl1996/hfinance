@@ -1,4 +1,5 @@
 export type WatchMarket = 'A_STOCK' | 'HK_STOCK' | 'FUND' | 'US_STOCK' | 'CN_INDEX'
+export type IndexImportPrefixType = 'SZ' | 'SH' | 'CSI'
 
 export interface WatchlistItem {
   id: number
