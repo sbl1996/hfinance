@@ -61,6 +61,15 @@ class FetchTaskRunStatus(str, Enum):
     FAILED = "FAILED"
 
 
+class ProxyStateUpdate(BaseModel):
+    vpn_enabled: bool = False
+
+
+class ProxyStateOut(BaseModel):
+    vpn_enabled: bool
+    proxy_url: str
+
+
 # ============ 现金账户 ============
 
 class CashAccountCreate(BaseModel):

@@ -22,6 +22,7 @@ import pandas as pd
 
 from app.core.config import get_settings
 from app.repositories import price_repo
+from app.services.network_proxy_state import build_proxy_env, outbound_proxy_env
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -39,7 +40,8 @@ def _fetch_hk_stock_akshare(code: str) -> dict | None:
     """
     try:
         start_date = datetime.now() - timedelta(days=3)
-        df = ak.stock_hk_hist_min_em(symbol=code, start_date=start_date.strftime("%Y-%m-%d %H:%M:%S"))
+        with outbound_proxy_env():
+            df = ak.stock_hk_hist_min_em(symbol=code, start_date=start_date.strftime("%Y-%m-%d %H:%M:%S"))
         if df.empty:
             logger.warning(f"港股 {code} 未找到行情数据")
             return None
@@ -72,6 +74,7 @@ def _agent_browser_cli(*args: str) -> str:
     result = subprocess.run(
         cmd,
         capture_output=True,
+        env=build_proxy_env(),
         text=True,
         timeout=settings.MARKET_FETCH_TIMEOUT,
     )
@@ -219,7 +222,8 @@ def fetch_a_etf(code: str) -> dict | None:
     try:
         # 先尝试 ETF
         if code.startswith(("51", "15", "16", "50", "52", "56", "58")):
-            df = ak.fund_etf_spot_em()
+            with outbound_proxy_env():
+                df = ak.fund_etf_spot_em()
             row = df[df["代码"] == code]
             if not row.empty:
                 latest_price = float(row.iloc[0]["最新价"])
@@ -231,7 +235,8 @@ def fetch_a_etf(code: str) -> dict | None:
                     "growth_rate": growth_rate,
                 }
         # 再尝试 A 股
-        df = ak.stock_zh_a_spot_em()
+        with outbound_proxy_env():
+            df = ak.stock_zh_a_spot_em()
         row = df[df["代码"] == code]
         if not row.empty:
             latest_price = float(row.iloc[0]["最新价"])
@@ -257,7 +262,8 @@ def fetch_us_stock(code: str) -> dict | None:
     """
     try:
         symbol = str(code).strip().upper()
-        df = ak.index_us_stock_sina(symbol=symbol)
+        with outbound_proxy_env():
+            df = ak.index_us_stock_sina(symbol=symbol)
         if df.empty:
             logger.warning(f"美股 {symbol} 未找到行情数据")
             return None
@@ -471,7 +477,8 @@ def _get_fund_open_fund_daily_df(force_refresh: bool = False) -> pd.DataFrame:
         return _fund_daily_cache_df
 
     logger.info("刷新基金日净值总表缓存")
-    df = ak.fund_open_fund_daily_em()
+    with outbound_proxy_env():
+        df = ak.fund_open_fund_daily_em()
     _fund_daily_cache_df = df
     _fund_daily_cache_expires_at = now + FUND_DAILY_CACHE_TTL_SECONDS
     return df
@@ -491,7 +498,8 @@ def fetch_cny_fx_rates() -> dict[str, dict]:
     :return: {"HKDCNY": {"rate": float, "rate_date": str}, "USDCNY": {...}}
     """
     try:
-        df = ak.fx_spot_quote()
+        with outbound_proxy_env():
+            df = ak.fx_spot_quote()
         rate_date = datetime.now().strftime("%Y-%m-%d")
         pair_mapping = {
             "HKD/CNY": "HKDCNY",

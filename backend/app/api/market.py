@@ -2,10 +2,22 @@
 
 from fastapi import APIRouter, HTTPException
 
+from app.models.schemas import ProxyStateOut, ProxyStateUpdate
 from app.services.market_fetcher import invalidate_fund_nav_cache
+from app.services.network_proxy_state import get_proxy_state, set_proxy_state
 from app.services.price_service import update_all_prices, update_single_price
 
 router = APIRouter()
+
+
+@router.get("/proxy-state", response_model=ProxyStateOut)
+async def read_proxy_state():
+    return ProxyStateOut(**get_proxy_state())
+
+
+@router.post("/proxy-state", response_model=ProxyStateOut)
+async def update_proxy_state(data: ProxyStateUpdate):
+    return ProxyStateOut(**set_proxy_state(data.vpn_enabled))
 
 
 @router.post("/refresh")

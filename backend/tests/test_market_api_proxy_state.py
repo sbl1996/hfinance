@@ -1,0 +1,102 @@
+import sys
+import types
+
+from fastapi.testclient import TestClient
+
+fake_jose = types.ModuleType("jose")
+fake_jose.JWTError = Exception
+fake_jose.jwt = types.SimpleNamespace(
+    decode=lambda token, secret, algorithms=None: {"sub": "admin"},
+    encode=lambda payload, secret, algorithm=None: "token",
+)
+sys.modules.setdefault("jose", fake_jose)
+
+from app.main import app
+from app.services.network_proxy_state import get_proxy_state, set_proxy_state
+
+
+async def _noop_async():
+    return None
+
+
+def _auth_headers(role: str) -> dict[str, str]:
+    token = "guest" if role == "guest" else "admin"
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_get_proxy_state_requires_login_and_returns_default(monkeypatch):
+    previous_state = get_proxy_state()["vpn_enabled"]
+    try:
+        set_proxy_state(False)
+        monkeypatch.setattr("app.main.init_database", _noop_async)
+        monkeypatch.setattr("app.main.start_scheduler", _noop_async)
+        monkeypatch.setattr("app.main.close_db", _noop_async)
+        monkeypatch.setattr("app.core.auth.verify_token", lambda token: True)
+        monkeypatch.setattr(
+            "app.core.auth.jwt.decode",
+            lambda token, _secret, algorithms=None: {"sub": "admin" if token == "admin" else "guest"},
+        )
+
+        with TestClient(app) as client:
+            response = client.get("/api/market/proxy-state", headers=_auth_headers("admin"))
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "vpn_enabled": False,
+            "proxy_url": "http://127.0.0.1:7890",
+        }
+    finally:
+        set_proxy_state(previous_state)
+
+
+def test_guest_cannot_update_proxy_state(monkeypatch):
+    previous_state = get_proxy_state()["vpn_enabled"]
+    try:
+        set_proxy_state(False)
+        monkeypatch.setattr("app.main.init_database", _noop_async)
+        monkeypatch.setattr("app.main.start_scheduler", _noop_async)
+        monkeypatch.setattr("app.main.close_db", _noop_async)
+        monkeypatch.setattr("app.core.auth.verify_token", lambda token: True)
+        monkeypatch.setattr(
+            "app.core.auth.jwt.decode",
+            lambda token, _secret, algorithms=None: {"sub": "guest"},
+        )
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/market/proxy-state",
+                json={"vpn_enabled": True},
+                headers=_auth_headers("guest"),
+            )
+
+        assert response.status_code == 403
+        assert get_proxy_state()["vpn_enabled"] is False
+    finally:
+        set_proxy_state(previous_state)
+
+
+def test_admin_can_update_proxy_state(monkeypatch):
+    previous_state = get_proxy_state()["vpn_enabled"]
+    try:
+        set_proxy_state(False)
+        monkeypatch.setattr("app.main.init_database", _noop_async)
+        monkeypatch.setattr("app.main.start_scheduler", _noop_async)
+        monkeypatch.setattr("app.main.close_db", _noop_async)
+        monkeypatch.setattr("app.core.auth.verify_token", lambda token: True)
+        monkeypatch.setattr(
+            "app.core.auth.jwt.decode",
+            lambda token, _secret, algorithms=None: {"sub": "admin"},
+        )
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/market/proxy-state",
+                json={"vpn_enabled": True},
+                headers=_auth_headers("admin"),
+            )
+
+        assert response.status_code == 200
+        assert response.json()["vpn_enabled"] is True
+        assert get_proxy_state()["vpn_enabled"] is True
+    finally:
+        set_proxy_state(previous_state)

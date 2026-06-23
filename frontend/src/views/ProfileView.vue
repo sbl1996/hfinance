@@ -16,6 +16,23 @@
     <!-- 系统信息列表 -->
     <van-cell-group inset class="info-group">
       <van-cell title="应用版本" icon="info-o" :value="'v' + version" />
+      <van-cell center icon="shield-o">
+        <template #title>
+          <span>开启 VPN</span>
+          <div class="cell-desc">
+            影响所有外部行情/历史数据抓取；仅保存在服务内存，重启后关闭
+          </div>
+        </template>
+        <template #value>
+          <van-switch
+            :model-value="runtimeStore.vpnEnabled"
+            :loading="runtimeStore.loading || runtimeStore.updating"
+            :disabled="authStore.isGuest || runtimeStore.loading || runtimeStore.updating"
+            size="22px"
+            @update:model-value="handleVpnToggle"
+          />
+        </template>
+      </van-cell>
       <van-cell title="检查更新" icon="passed" is-link @click="checkUpdate" />
     </van-cell-group>
 
@@ -38,10 +55,18 @@
 
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
+import { useRuntimeStore } from '@/stores/runtime'
 import { showDialog, showToast } from 'vant'
 
 const version = __APP_VERSION__
 const authStore = useAuthStore()
+const runtimeStore = useRuntimeStore()
+
+onMounted(() => {
+  runtimeStore.fetchProxyState().catch(() => {
+    // error toast is handled globally
+  })
+})
 
 function checkUpdate() {
   showToast({
@@ -49,6 +74,21 @@ function checkUpdate() {
     type: 'success',
     duration: 1500
   })
+}
+
+async function handleVpnToggle(nextValue: boolean) {
+  try {
+    const data = await runtimeStore.setVpnEnabled(nextValue)
+    showToast({
+      message: data.vpn_enabled ? 'VPN 代理已开启' : 'VPN 代理已关闭',
+      type: 'success',
+      duration: 1500
+    })
+  } catch {
+    await runtimeStore.fetchProxyState().catch(() => {
+      // error toast is handled globally
+    })
+  }
 }
 
 function handleLogout() {
@@ -119,6 +159,13 @@ function handleLogout() {
 .info-group {
   margin: 0 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.cell-desc {
+  margin-top: 4px;
+  color: #969799;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .action-container {
