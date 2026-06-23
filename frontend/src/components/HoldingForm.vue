@@ -49,31 +49,6 @@
       />
       <div class="form-actions">
         <van-button block type="primary" round @click="handleSubmit">确认</van-button>
-        <van-button
-          v-if="holding && isFundHolding"
-          block
-          round
-          plain
-          type="primary"
-          class="import-btn"
-          :loading="importingHistory"
-          @click="handleImport"
-        >
-          全量导入净值
-        </van-button>
-        <van-button
-          v-if="holding"
-          block
-          round
-          plain
-          type="warning"
-          class="ignore-btn"
-          :loading="updatingIgnored"
-          @click="handleToggleIgnored"
-        >
-          {{ holding.ignored ? '取消忽略盈亏统计' : '忽略盈亏统计' }}
-        </van-button>
-        <van-button v-if="holding" block type="danger" round plain class="delete-btn" @click="handleDelete">删除持仓</van-button>
       </div>
     </div>
     <van-popup v-model:show="showMarketPicker" position="bottom" round>
@@ -94,22 +69,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, watch } from 'vue'
-import { showConfirmDialog } from 'vant'
+import { ref, reactive, watch } from 'vue'
+import { showToast } from 'vant'
 
 const props = defineProps<{
   show: boolean
   holding: any
-  importingHistory?: boolean
-  updatingIgnored?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
   submit: [data: any]
-  delete: [holding: any]
-  importHistory: [holding: any]
-  toggleIgnored: [holding: any]
 }>()
 
 const visible = ref(props.show)
@@ -135,12 +105,6 @@ const currencyLabels: Record<string, string> = {
   HKD: '港币',
   USD: '美元',
 }
-const isFundHolding = computed(() => {
-  if (!props.holding) return false
-  return props.holding.market === 'FUND'
-})
-const importingHistory = computed(() => Boolean(props.importingHistory))
-const updatingIgnored = computed(() => Boolean(props.updatingIgnored))
 
 const form = reactive({
   code: '',
@@ -255,35 +219,33 @@ function onCurrencyConfirm({ selectedValues }: any) {
 }
 
 function handleSubmit() {
+  if (!form.code.trim()) {
+    showToast('请输入代码')
+    return
+  }
+  if (!form.name.trim()) {
+    showToast('请输入名称')
+    return
+  }
+  if (!parsePositiveNumber(form.quantity)) {
+    showToast('请输入正确的持有数量')
+    return
+  }
+  if (!parsePositiveNumber(form.cost_total_cny)) {
+    showToast('请输入正确的成本总额')
+    return
+  }
   const marketValue = Object.entries(marketLabels).find(([_, label]) => label === form.market)?.[0] || 'A_STOCK'
   const currencyValue = Object.entries(currencyLabels).find(([_, label]) => label === form.currency)?.[0] || 'CNY'
   emit('submit', {
-    code: form.code,
-    name: form.name,
+    code: form.code.trim(),
+    name: form.name.trim(),
     market: marketValue,
     currency: marketValue === 'FUND' ? currencyValue : 'CNY',
-    quantity: parseFloat(form.quantity) || 0,
-    cost_total_cny: parseFloat(form.cost_total_cny) || 0,
+    quantity: parseFloat(form.quantity),
+    cost_total_cny: parseFloat(form.cost_total_cny),
   })
-}
-
-async function handleDelete() {
-  if (!props.holding) return
-  try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除持仓「${props.holding.name}」？此操作不可撤销。` })
-    emit('delete', props.holding)
-    visible.value = false
-  } catch { /* cancelled */ }
-}
-
-async function handleImport() {
-  if (!props.holding || importingHistory.value) return
-  emit('importHistory', props.holding)
-}
-
-function handleToggleIgnored() {
-  if (!props.holding || updatingIgnored.value) return
-  emit('toggleIgnored', props.holding)
+  visible.value = false
 }
 </script>
 

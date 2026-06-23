@@ -72,10 +72,7 @@
     <WatchlistForm
       v-model:show="showForm"
       :item="editingItem"
-      :importing-history="importingHistory"
       @submit="handleFormSubmit"
-      @delete="handleDeleteFromForm"
-      @import-history="handleImportHistory"
     />
 
     <van-action-sheet
@@ -307,7 +304,6 @@ function openEditForm() {
 
 async function handleFormSubmit(formData: { code: string; name: string; market: any; currency: string }) {
   await watchlistStore.updateWatchlistItem(watchlistId, formData)
-  showForm.value = false
   editingItem.value = null
   await fetchData()
 }
@@ -316,15 +312,6 @@ async function handleDelete() {
   try {
     await showConfirmDialog({ title: '确认删除', message: `确定删除自选「${data.value?.name}」？` })
     await watchlistStore.deleteWatchlistItem(watchlistId)
-    router.back()
-  } catch { /* cancelled */ }
-}
-
-async function handleDeleteFromForm(item: WatchlistItem) {
-  try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除自选「${item.name}」？` })
-    await watchlistStore.deleteWatchlistItem(item.id)
-    showForm.value = false
     router.back()
   } catch { /* cancelled */ }
 }

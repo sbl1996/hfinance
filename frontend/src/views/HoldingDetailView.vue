@@ -88,6 +88,27 @@
       <!-- 操作按钮 -->
       <div class="action-bar">
         <van-button block round type="primary" @click="openEditForm">编辑持仓</van-button>
+        <van-button
+          v-if="data.market === 'FUND'"
+          block
+          round
+          plain
+          type="primary"
+          :loading="importingHistory"
+          @click="handleImportHistory"
+        >
+          全量导入净值
+        </van-button>
+        <van-button
+          block
+          round
+          plain
+          type="warning"
+          :loading="updatingIgnored"
+          @click="handleToggleIgnored"
+        >
+          {{ data.ignored ? '取消忽略盈亏统计' : '忽略盈亏统计' }}
+        </van-button>
         <van-button block round plain type="danger" @click="handleDelete">删除持仓</van-button>
       </div>
     </template>
@@ -96,12 +117,7 @@
     <HoldingForm
       v-model:show="showForm"
       :holding="editingHolding"
-      :importing-history="importingHistory"
-      :updating-ignored="updatingIgnored"
       @submit="handleFormSubmit"
-      @delete="handleDeleteFromForm"
-      @import-history="handleImportHistory"
-      @toggle-ignored="handleToggleIgnored"
     />
   </div>
 </template>
@@ -115,6 +131,10 @@ import { useHoldingStore } from '@/stores/holding'
 import { formatMoney, formatPercent, formatMonthDay, pnlColorClass } from '@/utils/format'
 import type { PriceHistoryResponse } from '@/types/holding'
 import HoldingForm from '@/components/HoldingForm.vue'
+
+type HoldingDetailData = PriceHistoryResponse & {
+  ignored: boolean
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -131,7 +151,7 @@ const RANGES = [
 const chartContainerRef = ref<HTMLDivElement | null>(null)
 const loading = ref(true)
 const error = ref(false)
-const data = ref<PriceHistoryResponse | null>(null)
+const data = ref<HoldingDetailData | null>(null)
 const activeRange = ref<string>('1Y')
 
 const showForm = ref(false)
@@ -216,7 +236,15 @@ async function fetchData() {
   loading.value = true
   error.value = false
   try {
-    data.value = await holdingStore.fetchPriceHistory(holdingId)
+    const detail = await holdingStore.fetchPriceHistory(holdingId)
+    if (holdingStore.holdings.length === 0) {
+      await holdingStore.fetchHoldings()
+    }
+    const holding = holdingStore.holdings.find((item: any) => item.id === holdingId)
+    data.value = {
+      ...detail,
+      ignored: holding?.ignored ?? false,
+    }
   } catch {
     error.value = true
   } finally {
@@ -319,7 +347,6 @@ async function openEditForm() {
 
 async function handleFormSubmit(formData: any) {
   await holdingStore.updateHolding(holdingId, formData)
-  showForm.value = false
   editingHolding.value = null
   await fetchData()
 }
@@ -332,30 +359,22 @@ async function handleDelete() {
   } catch { /* cancelled */ }
 }
 
-async function handleDeleteFromForm(holding: any) {
-  try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除持仓「${holding.name}」？` })
-    await holdingStore.deleteHolding(holding.id)
-    showForm.value = false
-    router.back()
-  } catch { /* cancelled */ }
-}
-
-async function handleImportHistory(holding: any) {
+async function handleImportHistory() {
   importingHistory.value = true
   try {
-    await holdingStore.importFundHistory(holding.id)
+    await holdingStore.importFundHistory(holdingId)
     await fetchData()
   } finally {
     importingHistory.value = false
   }
 }
 
-async function handleToggleIgnored(holding: any) {
+async function handleToggleIgnored() {
+  if (!data.value) return
   updatingIgnored.value = true
   try {
-    await holdingStore.updateHoldingIgnored(holding.id, !holding.ignored)
-    router.replace('/investment')
+    await holdingStore.updateHoldingIgnored(holdingId, !data.value.ignored)
+    await fetchData()
   } finally {
     updatingIgnored.value = false
   }

@@ -23,29 +23,6 @@
       />
       <div class="form-actions">
         <van-button block type="primary" round @click="handleSubmit">确认</van-button>
-        <van-button
-          v-if="item && supportsHistoryImport"
-          block
-          round
-          plain
-          type="primary"
-          class="import-btn"
-          :loading="importingHistory"
-          @click="handleImport"
-        >
-          全量导入净值
-        </van-button>
-        <van-button
-          v-if="item"
-          block
-          type="danger"
-          round
-          plain
-          class="delete-btn"
-          @click="handleDelete"
-        >
-          删除自选
-        </van-button>
       </div>
     </div>
     <van-popup v-model:show="showMarketPicker" position="bottom" round>
@@ -66,21 +43,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
-import { showConfirmDialog, showToast } from 'vant'
+import { reactive, ref, watch } from 'vue'
+import { showToast } from 'vant'
 import type { WatchMarket, WatchlistItem } from '@/types/watchlist'
 
 const props = defineProps<{
   show: boolean
   item: WatchlistItem | null
-  importingHistory?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
   submit: [data: { code: string; name: string; market: WatchMarket; currency: string }]
-  delete: [item: WatchlistItem]
-  importHistory: [item: WatchlistItem]
 }>()
 
 const visible = ref(props.show)
@@ -120,13 +94,6 @@ const form = reactive({
   market: 'A股',
   currency: '人民币',
 })
-
-const supportsHistoryImport = computed(() => (
-  props.item?.market === 'FUND'
-  || props.item?.market === 'US_STOCK'
-  || props.item?.market === 'CN_INDEX'
-))
-const importingHistory = computed(() => Boolean(props.importingHistory))
 
 watch(() => props.item, (item) => {
   if (item) {
@@ -176,20 +143,7 @@ function handleSubmit() {
     market: marketValue as WatchMarket,
     currency: marketValue === 'FUND' ? (Object.entries(currencyLabels).find(([_, label]) => label === form.currency)?.[0] || 'CNY') : 'CNY',
   })
-}
-
-async function handleDelete() {
-  if (!props.item) return
-  try {
-    await showConfirmDialog({ title: '确认删除', message: `确定删除自选「${props.item.name}」？此操作不可撤销。` })
-    emit('delete', props.item)
-    visible.value = false
-  } catch { /* cancelled */ }
-}
-
-function handleImport() {
-  if (!props.item || importingHistory.value) return
-  emit('importHistory', props.item)
+  visible.value = false
 }
 </script>
 
