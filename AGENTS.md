@@ -24,6 +24,7 @@ cd frontend && pnpm type-check   # TypeScript type checking
 
 # Deploy to the production server
 git push
+sleep 3
 ssh ark-1 "zsh -lic 'cd ~/Code/hfinance && git restore . && proxy_on && git pull && proxy_off && sleep 1 && bash deploy/deploy.sh'" # if the proxy fails, run `git pull` directly
 ```
 
@@ -62,4 +63,4 @@ ssh ark-1 "zsh -lic 'cd ~/Code/hfinance && git restore . && proxy_on && git pull
 - Use short English commit messages, preferably following Conventional Commits
 - Use `uv pip` for Python dependency management and `pnpm` for Node.js
 - Mobile-first design (max-width 480px content area, Vant tab/nav bars)
-- Before finishing a change, remind the user when version metadata or `RELEASE_NOTES.md` may need to be updated
+- Before deploying to the production server, remind the user when version metadata or `docs/RELEASE_NOTES.md` may need to be updated
