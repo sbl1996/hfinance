@@ -54,11 +54,13 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRuntimeStore } from '@/stores/runtime'
 import { showDialog, showToast } from 'vant'
 
 const version = __APP_VERSION__
+const router = useRouter()
 const authStore = useAuthStore()
 const runtimeStore = useRuntimeStore()
 
@@ -96,8 +98,9 @@ function handleLogout() {
     title: '提示',
     message: '确定要退出登录吗？',
     showCancelButton: true,
-  }).then(() => {
+  }).then(async () => {
     authStore.logout()
+    await router.replace({ name: 'Login' })
   }).catch(() => {
     // on cancel
   })

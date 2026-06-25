@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isGuestToken } from '@/utils/auth'
+import { authSession, syncAuthToken } from '@/stores/authSession'
 
 const routes = [
   {
@@ -71,12 +71,13 @@ const router = createRouter({
 
 // 全局路由守卫 - 认证检查
 router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('token')
-  if (to.meta.requiresAuth !== false && !token) {
+  syncAuthToken()
+
+  if (to.meta.requiresAuth !== false && !authSession.isLoggedIn.value) {
     next({ name: 'Login' })
-  } else if (to.name === 'Login' && token) {
+  } else if (to.name === 'Login' && authSession.isLoggedIn.value) {
     next({ name: 'Assets' })
-  } else if (to.meta.adminOnly && isGuestToken(token)) {
+  } else if (to.meta.adminOnly && authSession.isGuest.value) {
     next({ name: 'Assets' })
   } else {
     next()

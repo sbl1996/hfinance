@@ -8,6 +8,8 @@
 import axios from 'axios'
 import { showToast } from 'vant'
 import 'vant/es/toast/style'
+import router from '@/router'
+import { authSession, clearAuthToken } from '@/stores/authSession'
 
 const request = axios.create({
   baseURL: '/api',
@@ -17,9 +19,8 @@ const request = axios.create({
 // ---- 请求拦截器：自动注入 Token ----
 request.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    if (authSession.token.value) {
+      config.headers.Authorization = `Bearer ${authSession.token.value}`
     }
     return config
   },
@@ -106,8 +107,10 @@ request.interceptors.response.use(
     const status = error.response?.status
     
     if (status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+      clearAuthToken()
+      if (router.currentRoute.value.name !== 'Login') {
+        void router.replace({ name: 'Login' })
+      }
       return Promise.reject(error)
     }
 
