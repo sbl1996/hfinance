@@ -207,43 +207,6 @@ function marketLabel(market?: string | null) {
   text-overflow: ellipsis;
 }
 
-.market-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.market-badge-a_stock {
-  background: #e8f3ff;
-  color: #1f6fd6;
-}
-
-.market-badge-hk_stock {
-  background: #fff1e8;
-  color: #d46b08;
-}
-
-.market-badge-fund {
-  background: #edf8ee;
-  color: #389e0d;
-}
-
-.market-badge-us_stock {
-  background: #eef1ff;
-  color: #4458c8;
-}
-
-.market-badge-default {
-  background: #f2f3f5;
-  color: #666;
-}
-
 .ignored-badge {
   display: inline-flex;
   align-items: center;

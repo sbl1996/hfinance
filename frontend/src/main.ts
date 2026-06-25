@@ -6,6 +6,7 @@ import { registerServiceWorker } from './registerServiceWorker'
 
 // Vant �基础样式
 import 'vant/lib/index.css'
+import './styles/market-badge.css'
 
 const app = createApp(App)
 app.use(createPinia())
