@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to code agents when working with code in this repository.
+This file provides guidance to coding agents when working with code in this repository.
 
 ## Project
 
@@ -25,7 +25,7 @@ cd frontend && pnpm type-check   # TypeScript type checking
 # Deploy to the production server
 git push
 sleep 3
-ssh ark-1 "zsh -lic 'cd ~/Code/hfinance && git restore . && proxy_on && git pull && proxy_off && sleep 1 && bash deploy/deploy.sh'" # if the proxy fails, run `git pull` directly
+ssh cloud7 "zsh -lic 'cd ~/Code/hfinance && git restore . && proxy_on && git pull && proxy_off && sleep 1 && bash deploy/deploy.sh'" # if the proxy fails, run `git pull` directly
 ```
 
 ## Architecture
