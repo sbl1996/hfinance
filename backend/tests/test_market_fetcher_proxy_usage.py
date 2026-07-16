@@ -32,6 +32,56 @@ def test_agent_browser_cli_passes_proxy_env_when_enabled(monkeypatch):
         set_proxy_state(previous_state)
 
 
+def test_agent_browser_cli_retries_failed_connection(monkeypatch):
+    calls = 0
+    sleeps: list[int] = []
+
+    class FailedResult:
+        returncode = 1
+        stdout = ""
+        stderr = "Could not configure browser: Failed to connect: No such file or directory"
+
+    class SuccessResult:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return FailedResult() if calls < 3 else SuccessResult()
+
+    monkeypatch.setattr(market_fetcher.subprocess, "run", fake_run)
+    monkeypatch.setattr(market_fetcher.time, "sleep", sleeps.append)
+
+    assert market_fetcher._agent_browser_cli("open", "https://example.com") == "ok"
+    assert calls == 3
+    assert sleeps == [market_fetcher.AGENT_BROWSER_CONNECT_RETRY_SECONDS] * 2
+
+
+def test_fetch_cn_index_eastmoney_parses_after_hours_layout(monkeypatch):
+    snapshot = '''
+        - generic
+          - StaticText "红利低波"
+          - StaticText "H30269"
+          - emphasis
+          - StaticText "10607.56"
+          - StaticText "-102.21-0.95%"
+    '''
+
+    monkeypatch.setattr(market_fetcher.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        market_fetcher,
+        "_agent_browser_cli",
+        lambda command, *args: snapshot if command == "snapshot" else "",
+    )
+
+    result = market_fetcher._fetch_cn_index_eastmoney("H30269")
+
+    assert result is not None
+    assert result["price"] == 10607.56
+
+
 def test_fetch_us_stock_wraps_akshare_call_with_proxy_env(monkeypatch):
     previous_state = get_proxy_state()["vpn_enabled"]
     captured: dict = {}

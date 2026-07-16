@@ -30,6 +30,8 @@ settings = get_settings()
 FUND_DAILY_CACHE_TTL_SECONDS = 3600
 _fund_daily_cache_df: pd.DataFrame | None = None
 _fund_daily_cache_expires_at: float = 0.0
+AGENT_BROWSER_CONNECT_RETRIES = 2
+AGENT_BROWSER_CONNECT_RETRY_SECONDS = 2
 
 
 def _fetch_hk_stock_akshare(code: str) -> dict | None:
@@ -66,21 +68,37 @@ def _fetch_hk_stock_akshare(code: str) -> dict | None:
 
 
 def _agent_browser_cli(*args: str) -> str:
-    """调用全局 agent-browser CLI，Linux 下附加 no-sandbox 参数"""
+    """调用全局 agent-browser CLI，Linux 下附加 no-sandbox 参数。"""
     cmd = ["agent-browser"]
     if platform.system() == "Linux":
         cmd.extend(["--args", "--no-sandbox"])
     cmd.extend(args)
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        env=build_proxy_env(),
-        text=True,
-        timeout=settings.MARKET_FETCH_TIMEOUT,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"agent-browser 命令失败: {result.stderr.strip()}")
-    return result.stdout.strip()
+
+    for attempt in range(AGENT_BROWSER_CONNECT_RETRIES + 1):
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            env=build_proxy_env(),
+            text=True,
+            timeout=settings.MARKET_FETCH_TIMEOUT,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+        error = result.stderr.strip()
+        if "Failed to connect:" not in error or attempt == AGENT_BROWSER_CONNECT_RETRIES:
+            raise RuntimeError(f"agent-browser 命令失败: {error}")
+
+        logger.warning(
+            "agent-browser 连接失败，%s 秒后重试（%s/%s）: %s",
+            AGENT_BROWSER_CONNECT_RETRY_SECONDS,
+            attempt + 1,
+            AGENT_BROWSER_CONNECT_RETRIES,
+            error,
+        )
+        time.sleep(AGENT_BROWSER_CONNECT_RETRY_SECONDS)
+
+    raise AssertionError("unreachable")
 
 
 def _fetch_hk_stock_tencent(code: str) -> dict | None:
@@ -361,7 +379,15 @@ def _fetch_cn_index_eastmoney(symbol: str) -> dict | None:
         for _ in range(3):
             time.sleep(2)
             snap_text = _agent_browser_cli("snapshot")
+            # 盘中页面通常带“最新：”，收盘后则会显示为代码后紧跟价格。
             match = re.search(r"最新[:：]\s*(\d+(?:\.\d+)?)", snap_text)
+            if not match:
+                match = re.search(
+                    rf'StaticText "{re.escape(eastmoney_symbol)}".*?'
+                    r'StaticText "(\d+(?:\.\d+)?)"',
+                    snap_text,
+                    re.DOTALL,
+                )
             if match:
                 break
 
