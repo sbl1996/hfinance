@@ -11,7 +11,11 @@ export interface PriceHistoryResponse {
   market: string
   currency: string
   current_price: number | null
+  current_price_native: number | null
+  current_price_cny: number | null
   price_currency: string | null
+  unit_cost_native: number | null
+  unit_cost_native_currency: string | null
   price_date: string | null
   market_value_cny: number | null
   pnl_cny: number | null

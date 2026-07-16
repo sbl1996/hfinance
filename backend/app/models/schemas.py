@@ -258,8 +258,14 @@ class PriceHistoryResponse(BaseModel):
     unit_cost: float
     market: MarketType
     currency: CurrencyType = CurrencyType.CNY
+    # current_price 保留为兼容字段，值始终为行情源返回的本币价格。
     current_price: Optional[float] = None
+    current_price_native: Optional[float] = None
+    current_price_cny: Optional[float] = None
     price_currency: Optional[CurrencyType] = None
+    # 以最新汇率将人民币单位成本折算成本币，仅用于和本币最新价直观比较。
+    unit_cost_native: Optional[float] = None
+    unit_cost_native_currency: Optional[CurrencyType] = None
     price_date: Optional[str] = None
     market_value_cny: Optional[float] = None
     pnl_cny: Optional[float] = None

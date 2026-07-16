@@ -199,6 +199,21 @@ async def get_holding_price_history(item_id: int):
     if holding["quantity"] > 0:
         unit_cost = holding["cost_total_cny"] / holding["quantity"]
 
+    # 成本原始录入口径是 CNY。对外币标的以最新汇率折算一份本币成本，
+    # 方便与本币最新价比较；人民币成本仍保留给市值、盈亏和历史图表使用。
+    unit_cost_native = None
+    unit_cost_native_currency = None
+    current_price_native = enriched.latest_price
+    current_price_cny = None
+    if enriched.latest_price is not None and enriched.price_currency is not None:
+        price_currency = enriched.price_currency.value
+        latest_rate_map = await get_latest_cny_rate_map()
+        cny_rate = latest_rate_map.get(price_currency, 1.0)
+        current_price_cny = enriched.latest_price * cny_rate
+        if cny_rate > 0:
+            unit_cost_native = unit_cost / cny_rate
+            unit_cost_native_currency = enriched.price_currency
+
     raw_history = await price_repo.get_price_history(holding["code"])
     if not raw_history:
         return PriceHistoryResponse(
@@ -208,7 +223,11 @@ async def get_holding_price_history(item_id: int):
             market=MarketType(holding["market"]),
             currency=CurrencyType(holding.get("currency") or "CNY"),
             current_price=enriched.latest_price,
+            current_price_native=current_price_native,
+            current_price_cny=round(current_price_cny, 4) if current_price_cny is not None else None,
             price_currency=enriched.price_currency,
+            unit_cost_native=round(unit_cost_native, 4) if unit_cost_native is not None else None,
+            unit_cost_native_currency=unit_cost_native_currency,
             price_date=enriched.price_date,
             market_value_cny=enriched.market_value_cny,
             pnl_cny=enriched.pnl_cny,
@@ -257,7 +276,11 @@ async def get_holding_price_history(item_id: int):
         market=MarketType(holding["market"]),
         currency=CurrencyType(holding.get("currency") or "CNY"),
         current_price=enriched.latest_price,
+        current_price_native=current_price_native,
+        current_price_cny=round(current_price_cny, 4) if current_price_cny is not None else None,
         price_currency=enriched.price_currency,
+        unit_cost_native=round(unit_cost_native, 4) if unit_cost_native is not None else None,
+        unit_cost_native_currency=unit_cost_native_currency,
         price_date=enriched.price_date,
         market_value_cny=enriched.market_value_cny,
         pnl_cny=enriched.pnl_cny,

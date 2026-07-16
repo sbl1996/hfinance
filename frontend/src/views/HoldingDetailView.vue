@@ -43,7 +43,7 @@
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">最新价</span>
-            <span class="info-value">{{ formattedPrice(data.current_price, data.price_currency) }}</span>
+            <span class="info-value">{{ formattedPrice(data.current_price_native ?? data.current_price, data.price_currency) }}</span>
           </div>
           <div class="info-row">
             <span class="info-label">持有数量</span>
@@ -54,8 +54,16 @@
             <span class="info-value">{{ formatMoney(data.cost_total_cny) }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">单位成本</span>
-            <span class="info-value">{{ formatMoney(data.unit_cost) }}</span>
+            <span class="info-label">单位成本{{ unitCostCurrencySuffix }}</span>
+            <button
+              :class="['info-value', 'cost-toggle', { 'cost-toggle-enabled': canToggleUnitCost }]"
+              type="button"
+              :disabled="!canToggleUnitCost"
+              @click="toggleUnitCostCurrency"
+            >
+              {{ displayedUnitCost }}
+              <span v-if="canToggleUnitCost" class="cost-toggle-hint">点按切换</span>
+            </button>
           </div>
           <div class="info-row">
             <span class="info-label">市值</span>
@@ -158,6 +166,7 @@ const showForm = ref(false)
 const editingHolding = ref<any>(null)
 const importingHistory = ref(false)
 const updatingIgnored = ref(false)
+const showNativeUnitCost = ref(true)
 
 let chart: ReturnType<typeof createChart> | null = null
 
@@ -193,6 +202,37 @@ function formattedPrice(price?: number | null, currency?: string | null) {
     return `${displayPrice} HKD`
   }
   return displayPrice
+}
+
+function formattedCurrencyAmount(value?: number | null, currency?: string | null) {
+  if (value === null || value === undefined) return '--'
+  if (currency === 'CNY' || !currency) return formatMoney(value)
+  return formattedPrice(value, currency)
+}
+
+const nativeCostCurrency = computed(() => data.value?.unit_cost_native_currency)
+const canToggleUnitCost = computed(() => (
+  nativeCostCurrency.value !== null
+  && nativeCostCurrency.value !== undefined
+  && nativeCostCurrency.value !== 'CNY'
+  && data.value?.unit_cost_native !== null
+  && data.value?.unit_cost_native !== undefined
+))
+const unitCostCurrencySuffix = computed(() => {
+  if (showNativeUnitCost.value && canToggleUnitCost.value) {
+    return `（${nativeCostCurrency.value}）`
+  }
+  return '（CNY）'
+})
+const displayedUnitCost = computed(() => {
+  if (showNativeUnitCost.value && canToggleUnitCost.value) {
+    return formattedCurrencyAmount(data.value?.unit_cost_native, nativeCostCurrency.value)
+  }
+  return formatMoney(data.value?.unit_cost)
+})
+
+function toggleUnitCostCurrency() {
+  if (canToggleUnitCost.value) showNativeUnitCost.value = !showNativeUnitCost.value
 }
 
 function formatDateToEST(date: Date): string {
@@ -245,6 +285,7 @@ async function fetchData() {
       ...detail,
       ignored: holding?.ignored ?? false,
     }
+    showNativeUnitCost.value = true
   } catch {
     error.value = true
   } finally {
@@ -494,6 +535,28 @@ onUnmounted(() => {
   color: #333;
   font-weight: 500;
   text-align: right;
+}
+
+.cost-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: right;
+}
+
+.cost-toggle-enabled {
+  cursor: pointer;
+}
+
+.cost-toggle-hint {
+  display: block;
+  margin-top: 2px;
+  color: #969799;
+  font-size: 11px;
+  font-weight: normal;
 }
 
 .pnl-percent {
