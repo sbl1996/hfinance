@@ -2,22 +2,26 @@
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.schemas import ProxyStateOut, ProxyStateUpdate
+from app.models.schemas import RoutePoliciesOut, RoutePoliciesUpdate
 from app.services.market_fetcher import invalidate_fund_nav_cache
-from app.services.network_proxy_state import get_proxy_state, set_proxy_state
+from app.services.network_proxy_state import get_route_policies, set_route_policies, VPN_PROXY_URL
 from app.services.price_service import update_all_prices, update_single_price
 
 router = APIRouter()
 
 
-@router.get("/proxy-state", response_model=ProxyStateOut)
-async def read_proxy_state():
-    return ProxyStateOut(**get_proxy_state())
+@router.get("/route-policies", response_model=RoutePoliciesOut)
+async def read_route_policies():
+    return RoutePoliciesOut(policies=get_route_policies(), proxy_url=VPN_PROXY_URL)
 
 
-@router.post("/proxy-state", response_model=ProxyStateOut)
-async def update_proxy_state(data: ProxyStateUpdate):
-    return ProxyStateOut(**set_proxy_state(data.vpn_enabled))
+@router.put("/route-policies", response_model=RoutePoliciesOut)
+async def update_route_policies(data: RoutePoliciesUpdate):
+    try:
+        policies = await set_route_policies(data.policies)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RoutePoliciesOut(policies=policies, proxy_url=VPN_PROXY_URL)
 
 
 @router.post("/refresh")

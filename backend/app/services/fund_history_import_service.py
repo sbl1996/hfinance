@@ -4,11 +4,11 @@ import akshare as ak
 
 from app.models.schemas import IndexImportPrefixType
 from app.repositories import price_repo
-from app.services.network_proxy_state import outbound_proxy_env
+from app.services.network_proxy_state import outbound_route_env
 
 
 def fetch_fund_history(code: str):
-    with outbound_proxy_env():
+    with outbound_route_env("AK_FUND"):
         df = ak.fund_open_fund_info_em(symbol=code)
     if df.empty:
         raise ValueError(f"基金 {code} 未获取到净值数据")
@@ -16,7 +16,7 @@ def fetch_fund_history(code: str):
 
 
 def fetch_us_stock_history(code: str):
-    with outbound_proxy_env():
+    with outbound_route_env("AK_US"):
         df = ak.index_us_stock_sina(symbol=code)
     if df.empty:
         raise ValueError(f"美股 {code} 未获取到历史行情")
@@ -33,7 +33,7 @@ def build_cn_index_symbol(code: str, prefix_type: IndexImportPrefixType) -> str:
 
 def fetch_cn_index_history(code: str, prefix_type: IndexImportPrefixType):
     symbol = build_cn_index_symbol(code, prefix_type)
-    with outbound_proxy_env():
+    with outbound_route_env("EASTMONEY"):
         df = ak.stock_zh_index_daily_em(
             symbol=symbol,
             start_date="20200101",

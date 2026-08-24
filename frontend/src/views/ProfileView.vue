@@ -18,19 +18,23 @@
       <van-cell title="应用版本" icon="info-o" :value="'v' + version" />
       <van-cell center icon="shield-o">
         <template #title>
-          <span>开启 VPN</span>
+          <span>数据源路由策略</span>
           <div class="cell-desc">
-            影响所有外部行情/历史数据抓取；仅保存在服务内存，重启后关闭
+            每个数据源可单独选择直连或 VPN；代理地址：{{ runtimeStore.proxyUrl || '加载中' }}
           </div>
         </template>
+      </van-cell>
+      <van-cell v-for="source in ROUTE_SOURCES" :key="source" center :title="ROUTE_SOURCE_LABELS[source]">
         <template #value>
-          <van-switch
-            :model-value="runtimeStore.vpnEnabled"
-            :loading="runtimeStore.loading || runtimeStore.updating"
+          <van-radio-group
+            direction="horizontal"
+            :model-value="runtimeStore.policies?.[source]"
             :disabled="authStore.isGuest || runtimeStore.loading || runtimeStore.updating"
-            size="22px"
-            @update:model-value="handleVpnToggle"
-          />
+            @update:model-value="(value) => handleRoutePolicy(source, value)"
+          >
+            <van-radio name="DIRECT">直连</van-radio>
+            <van-radio name="VPN">VPN</van-radio>
+          </van-radio-group>
         </template>
       </van-cell>
       <van-cell title="检查更新" icon="passed" is-link @click="checkUpdate" />
@@ -56,7 +60,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useRuntimeStore } from '@/stores/runtime'
+import { ROUTE_SOURCE_LABELS, ROUTE_SOURCES, type RoutePolicy, type RouteSource, useRuntimeStore } from '@/stores/runtime'
 import { showDialog, showToast } from 'vant'
 
 const version = __APP_VERSION__
@@ -65,7 +69,7 @@ const authStore = useAuthStore()
 const runtimeStore = useRuntimeStore()
 
 onMounted(() => {
-  runtimeStore.fetchProxyState().catch(() => {
+  runtimeStore.fetchRoutePolicies().catch(() => {
     // error toast is handled globally
   })
 })
@@ -78,16 +82,17 @@ function checkUpdate() {
   })
 }
 
-async function handleVpnToggle(nextValue: boolean) {
+async function handleRoutePolicy(source: RouteSource, policy: string | number) {
+  if (policy !== 'DIRECT' && policy !== 'VPN') return
   try {
-    const data = await runtimeStore.setVpnEnabled(nextValue)
+    await runtimeStore.setRoutePolicy(source, policy as RoutePolicy)
     showToast({
-      message: data.vpn_enabled ? 'VPN 代理已开启' : 'VPN 代理已关闭',
+      message: `${ROUTE_SOURCE_LABELS[source]}已切换为${policy === 'VPN' ? 'VPN' : '直连'}`,
       type: 'success',
       duration: 1500
     })
   } catch {
-    await runtimeStore.fetchProxyState().catch(() => {
+    await runtimeStore.fetchRoutePolicies().catch(() => {
       // error toast is handled globally
     })
   }

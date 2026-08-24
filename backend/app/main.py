@@ -10,6 +10,7 @@ from app.core.auth import AuthMiddleware
 from app.db.init_db import init_database
 from app.db.connection import close_db
 from app.services.scheduler import start_scheduler
+from app.services.network_proxy_state import load_route_policies
 
 settings = get_settings()
 
@@ -57,6 +58,7 @@ app.include_router(fetch_tasks.router, prefix="/api/fetch-tasks", tags=["自动�
 @app.on_event("startup")
 async def on_startup():
     await init_database()
+    await load_route_policies()
     await start_scheduler()
 
 

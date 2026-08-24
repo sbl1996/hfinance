@@ -22,7 +22,7 @@ import pandas as pd
 
 from app.core.config import get_settings
 from app.repositories import price_repo
-from app.services.network_proxy_state import build_proxy_env, outbound_proxy_env
+from app.services.network_proxy_state import build_route_env, outbound_route_env
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -42,7 +42,7 @@ def _fetch_hk_stock_akshare(code: str) -> dict | None:
     """
     try:
         start_date = datetime.now() - timedelta(days=3)
-        with outbound_proxy_env():
+        with outbound_route_env("AK_HK"):
             df = ak.stock_hk_hist_min_em(symbol=code, start_date=start_date.strftime("%Y-%m-%d %H:%M:%S"))
         if df.empty:
             logger.warning(f"港股 {code} 未找到行情数据")
@@ -67,7 +67,7 @@ def _fetch_hk_stock_akshare(code: str) -> dict | None:
         return None
 
 
-def _agent_browser_cli(*args: str) -> str:
+def _agent_browser_cli(*args: str, source: str = "DIRECT") -> str:
     """调用全局 agent-browser CLI，Linux 下附加 no-sandbox 参数。"""
     cmd = ["agent-browser"]
     if platform.system() == "Linux":
@@ -78,7 +78,7 @@ def _agent_browser_cli(*args: str) -> str:
         result = subprocess.run(
             cmd,
             capture_output=True,
-            env=build_proxy_env(),
+            env=build_route_env(source),
             text=True,
             timeout=settings.MARKET_FETCH_TIMEOUT,
         )
@@ -110,7 +110,7 @@ def _fetch_hk_stock_tencent(code: str) -> dict | None:
     try:
         # 腾讯网港股页面 URL，港股代码补足5位
         url = f"https://gu.qq.com/hk{code.zfill(5)}/gp"
-        stdout = _agent_browser_cli("open", url)
+        stdout = _agent_browser_cli("open", url, source="TENCENT")
 
         # 解析 stdout 中的 title 信息，第一行格式例如：
         # ✓ 腾讯控股 428.200 3.200(+0.75%)_财经频道_腾讯网
@@ -162,7 +162,7 @@ def _fetch_hk_stock_futu(code: str) -> dict | None:
     try:
         # 1. 打开富途港股行情页
         url = f"https://www.futunn.com/stock/{code}-HK"
-        _agent_browser_cli("open", url)
+        _agent_browser_cli("open", url, source="FUTU")
 
         # 2. 等待页面加载
         time.sleep(3)
@@ -240,7 +240,7 @@ def fetch_a_etf(code: str) -> dict | None:
     try:
         # 先尝试 ETF
         if code.startswith(("51", "15", "16", "50", "52", "56", "58")):
-            with outbound_proxy_env():
+            with outbound_route_env("AK_A"):
                 df = ak.fund_etf_spot_em()
             row = df[df["代码"] == code]
             if not row.empty:
@@ -253,7 +253,7 @@ def fetch_a_etf(code: str) -> dict | None:
                     "growth_rate": growth_rate,
                 }
         # 再尝试 A 股
-        with outbound_proxy_env():
+        with outbound_route_env("AK_A"):
             df = ak.stock_zh_a_spot_em()
         row = df[df["代码"] == code]
         if not row.empty:
@@ -280,7 +280,7 @@ def fetch_us_stock(code: str) -> dict | None:
     """
     try:
         symbol = str(code).strip().upper()
-        with outbound_proxy_env():
+        with outbound_route_env("AK_US"):
             df = ak.index_us_stock_sina(symbol=symbol)
         if df.empty:
             logger.warning(f"美股 {symbol} 未找到行情数据")
@@ -332,7 +332,7 @@ def _fetch_cn_index_xueqiu(symbol: str) -> dict | None:
     xueqiu_symbol = symbol if symbol.startswith("CSI") else f"CSI{symbol}"
     try:
         url = f"https://xueqiu.com/S/{xueqiu_symbol}/notices"
-        _agent_browser_cli("open", url)
+        _agent_browser_cli("open", url, source="XUEQIU")
 
         match = None
         for _ in range(3):
@@ -378,7 +378,7 @@ def _fetch_cn_index_eastmoney(symbol: str) -> dict | None:
     eastmoney_symbol = symbol[3:] if symbol.startswith("CSI") else symbol
     try:
         url = f"https://quote.eastmoney.com/zz/2.{eastmoney_symbol}.html"
-        _agent_browser_cli("open", url)
+        _agent_browser_cli("open", url, source="EASTMONEY")
 
         match = None
         for _ in range(3):
@@ -427,7 +427,7 @@ def _fetch_cn_index_yahoo(symbol: str) -> dict | None:
     yahoo_symbol = symbol if symbol.endswith((".SS", ".SZ")) else f"{symbol}.SS"
     try:
         url = f"https://finance.yahoo.com/quote/{yahoo_symbol}/"
-        _agent_browser_cli("open", url)
+        _agent_browser_cli("open", url, source="YAHOO")
 
         match = None
         for _ in range(3):
@@ -557,7 +557,7 @@ def _get_fund_open_fund_daily_df(force_refresh: bool = False) -> pd.DataFrame:
         return _fund_daily_cache_df
 
     logger.info("刷新基金日净值总表缓存")
-    with outbound_proxy_env():
+    with outbound_route_env("AK_FUND"):
         df = ak.fund_open_fund_daily_em()
     _fund_daily_cache_df = df
     _fund_daily_cache_expires_at = now + FUND_DAILY_CACHE_TTL_SECONDS
@@ -578,7 +578,7 @@ def fetch_cny_fx_rates() -> dict[str, dict]:
     :return: {"HKDCNY": {"rate": float, "rate_date": str}, "USDCNY": {...}}
     """
     try:
-        with outbound_proxy_env():
+        with outbound_route_env("CHINAMONEY"):
             df = ak.fx_spot_quote()
         rate_date = datetime.now().strftime("%Y-%m-%d")
         pair_mapping = {

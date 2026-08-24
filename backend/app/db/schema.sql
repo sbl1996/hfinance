@@ -2,6 +2,13 @@
 -- SQLite3
 
 -- 现金账户表
+CREATE TABLE IF NOT EXISTS runtime_settings (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 现金账户表
 CREATE TABLE IF NOT EXISTS cash_accounts (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT    NOT NULL,

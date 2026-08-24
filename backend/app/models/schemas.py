@@ -66,12 +66,12 @@ class HoldingAlertType(str, Enum):
     STOP_LOSS = "STOP_LOSS"
 
 
-class ProxyStateUpdate(BaseModel):
-    vpn_enabled: bool = False
+class RoutePoliciesUpdate(BaseModel):
+    policies: dict[str, str]
 
 
-class ProxyStateOut(BaseModel):
-    vpn_enabled: bool
+class RoutePoliciesOut(BaseModel):
+    policies: dict[str, str]
     proxy_url: str
 
 

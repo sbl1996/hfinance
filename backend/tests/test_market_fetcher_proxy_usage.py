@@ -1,11 +1,10 @@
 import os
 
 from app.services import market_fetcher
-from app.services.network_proxy_state import VPN_PROXY_URL, get_proxy_state, set_proxy_state
+from app.services.network_proxy_state import VPN_PROXY_URL
 
 
 def test_agent_browser_cli_passes_proxy_env_when_enabled(monkeypatch):
-    previous_state = get_proxy_state()["vpn_enabled"]
     captured: dict = {}
 
     class DummyResult:
@@ -19,17 +18,13 @@ def test_agent_browser_cli_passes_proxy_env_when_enabled(monkeypatch):
         captured["timeout"] = timeout
         return DummyResult()
 
-    try:
-        set_proxy_state(True)
-        monkeypatch.setattr(market_fetcher.subprocess, "run", fake_run)
+    monkeypatch.setattr(market_fetcher.subprocess, "run", fake_run)
 
-        stdout = market_fetcher._agent_browser_cli("open", "https://example.com")
+    stdout = market_fetcher._agent_browser_cli("open", "https://example.com", source="YAHOO")
 
-        assert stdout == "ok"
-        assert captured["env"]["HTTP_PROXY"] == VPN_PROXY_URL
-        assert captured["env"]["HTTPS_PROXY"] == VPN_PROXY_URL
-    finally:
-        set_proxy_state(previous_state)
+    assert stdout == "ok"
+    assert captured["env"]["HTTP_PROXY"] == VPN_PROXY_URL
+    assert captured["env"]["HTTPS_PROXY"] == VPN_PROXY_URL
 
 
 def test_agent_browser_cli_retries_failed_connection(monkeypatch):
@@ -54,7 +49,7 @@ def test_agent_browser_cli_retries_failed_connection(monkeypatch):
     monkeypatch.setattr(market_fetcher.subprocess, "run", fake_run)
     monkeypatch.setattr(market_fetcher.time, "sleep", sleeps.append)
 
-    assert market_fetcher._agent_browser_cli("open", "https://example.com") == "ok"
+    assert market_fetcher._agent_browser_cli("open", "https://example.com", source="YAHOO") == "ok"
     assert calls == 3
     assert sleeps == [market_fetcher.AGENT_BROWSER_CONNECT_RETRY_SECONDS] * 2
 
@@ -109,7 +104,6 @@ def test_fetch_cn_index_yahoo_parses_quote_snapshot(monkeypatch):
 
 
 def test_fetch_us_stock_wraps_akshare_call_with_proxy_env(monkeypatch):
-    previous_state = get_proxy_state()["vpn_enabled"]
     captured: dict = {}
 
     class DummyDataFrame:
@@ -137,15 +131,11 @@ def test_fetch_us_stock_wraps_akshare_call_with_proxy_env(monkeypatch):
         captured["HTTPS_PROXY"] = os.environ.get("HTTPS_PROXY")
         return DummyDataFrame()
 
-    try:
-        set_proxy_state(True)
-        monkeypatch.setattr(market_fetcher.ak, "index_us_stock_sina", fake_index_us_stock_sina)
+    monkeypatch.setattr(market_fetcher.ak, "index_us_stock_sina", fake_index_us_stock_sina)
 
-        result = market_fetcher.fetch_us_stock("tsla")
+    result = market_fetcher.fetch_us_stock("tsla")
 
-        assert result is not None
-        assert captured["symbol"] == "TSLA"
-        assert captured["HTTP_PROXY"] == VPN_PROXY_URL
-        assert captured["HTTPS_PROXY"] == VPN_PROXY_URL
-    finally:
-        set_proxy_state(previous_state)
+    assert result is not None
+    assert captured["symbol"] == "TSLA"
+    assert captured["HTTP_PROXY"] is None
+    assert captured["HTTPS_PROXY"] is None
