@@ -116,6 +116,23 @@ def test_fetch_cn_index_yahoo_retries_empty_snapshot(monkeypatch):
     assert result["price"] == 10975.8
 
 
+def test_fetch_cn_index_yahoo_uses_proxy_route_for_snapshot(monkeypatch):
+    snapshot = (FIXTURES_DIR / "H30269.yahoo.snapshot").read_text()
+    calls: list[tuple[str, str | None]] = []
+
+    def fake_agent_browser(command, *args, source=None):
+        calls.append((command, source))
+        return snapshot if command == "snapshot" else ("H30269.SS" if command == "wait" else "")
+
+    monkeypatch.setattr(market_fetcher.time, "sleep", lambda _: None)
+    monkeypatch.setattr(market_fetcher, "_agent_browser_cli", fake_agent_browser)
+
+    result = market_fetcher._fetch_cn_index_yahoo("H30269")
+
+    assert result is not None
+    assert calls[:3] == [("open", "YAHOO"), ("wait", "YAHOO"), ("snapshot", "YAHOO")]
+
+
 def test_fetch_us_stock_wraps_akshare_call_with_proxy_env(monkeypatch):
     captured: dict = {}
 

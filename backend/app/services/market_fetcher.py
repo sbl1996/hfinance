@@ -339,7 +339,7 @@ def _fetch_cn_index_xueqiu(symbol: str) -> dict | None:
         match = None
         for _ in range(3):
             time.sleep(2)
-            snap_text = _agent_browser_cli("snapshot")
+            snap_text = _agent_browser_cli("snapshot", source="XUEQIU")
             match = re.search(
                 r'link "加自选".*?strong\s+- StaticText "(\d+(?:\.\d+)?)"\s+'
                 r'- StaticText "[+-]?\d+(?:\.\d+)?\s+([+-]?\d+(?:\.\d+)?)%"',
@@ -385,7 +385,7 @@ def _fetch_cn_index_eastmoney(symbol: str) -> dict | None:
         match = None
         for _ in range(3):
             time.sleep(2)
-            snap_text = _agent_browser_cli("snapshot")
+            snap_text = _agent_browser_cli("snapshot", source="EASTMONEY")
             # 盘中页面通常带“最新：”，收盘后则会显示为代码后紧跟价格。
             match = re.search(r"最新[:：]\s*(\d+(?:\.\d+)?)", snap_text)
             if not match:
@@ -457,7 +457,7 @@ def _fetch_cn_index_yahoo(symbol: str) -> dict | None:
         result = None
         for _ in range(YAHOO_SNAPSHOT_RETRIES):
             time.sleep(YAHOO_SNAPSHOT_RETRY_SECONDS)
-            snap_text = _agent_browser_cli("snapshot")
+            snap_text = _agent_browser_cli("snapshot", source="YAHOO")
             result = _parse_cn_index_yahoo_snapshot(snap_text, yahoo_symbol)
             if result is not None:
                 break
