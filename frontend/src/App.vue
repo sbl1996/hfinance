@@ -2,6 +2,7 @@
   <router-view v-if="isLoginPage" />
   <div v-else class="app-container">
     <van-nav-bar
+      v-if="!isHoldingDetailPage"
       title="HFinance"
       :fixed="false"
       :border="false"
@@ -28,6 +29,7 @@ const authStore = useAuthStore()
 const activeTab = ref(0)
 
 const isLoginPage = computed(() => route.path === '/login')
+const isHoldingDetailPage = computed(() => route.name === 'HoldingDetail')
 </script>
 
 <style>
