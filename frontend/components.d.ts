@@ -40,6 +40,7 @@ declare module 'vue' {
     VanSwitch: typeof import('vant/es')['Switch']
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
+    VanTag: typeof import('vant/es')['Tag']
     VanTimePicker: typeof import('vant/es')['TimePicker']
     Watchlist: typeof import('./src/components/Watchlist.vue')['default']
     WatchlistForm: typeof import('./src/components/WatchlistForm.vue')['default']
