@@ -82,6 +82,32 @@ def test_fetch_cn_index_eastmoney_parses_after_hours_layout(monkeypatch):
     assert result["price"] == 10607.56
 
 
+def test_fetch_cn_index_yahoo_parses_quote_snapshot(monkeypatch):
+    snapshot = '''
+        - StaticText "Shanghai - Delayed Quote"
+        - StaticText "CNY"
+        - heading "CSI Dividend Low Volatility Ind (H30269.SS)" [level=1]
+        - StaticText "10,975.80"
+        - StaticText "+117.03"
+        - StaticText "(+1.08%)"
+        - StaticText "At close: 3:00:24 PM GMT+8"
+    '''
+
+    monkeypatch.setattr(market_fetcher.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        market_fetcher,
+        "_agent_browser_cli",
+        lambda command, *args: snapshot if command == "snapshot" else "",
+    )
+
+    result = market_fetcher._fetch_cn_index_yahoo("H30269")
+
+    assert result is not None
+    assert result["price"] == 10975.8
+    assert result["currency"] == "CNY"
+    assert result["growth_rate"] == 0.0108
+
+
 def test_fetch_us_stock_wraps_akshare_call_with_proxy_env(monkeypatch):
     previous_state = get_proxy_state()["vpn_enabled"]
     captured: dict = {}

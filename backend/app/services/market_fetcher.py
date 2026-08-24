@@ -314,6 +314,11 @@ def fetch_cn_index(code: str) -> dict | None:
     :return: {"price": float, "price_date": str, "currency": "CNY", "growth_rate": float} 或 None
     """
     symbol = str(code).strip().upper()
+    result = _fetch_cn_index_yahoo(symbol)
+    if result is not None:
+        return result
+
+    logger.info(f"Yahoo Finance 获取指数 {symbol} 行情失败，尝试雪球 fallback")
     result = _fetch_cn_index_xueqiu(symbol)
     if result is not None:
         return result
@@ -409,6 +414,55 @@ def _fetch_cn_index_eastmoney(symbol: str) -> dict | None:
         return None
     except Exception as e:
         logger.error(f"东方财富获取指数 {eastmoney_symbol} 行情失败: {e}")
+        return None
+    finally:
+        try:
+            _agent_browser_cli("close")
+        except Exception:
+            pass
+
+
+def _fetch_cn_index_yahoo(symbol: str) -> dict | None:
+    """通过 Yahoo Finance 指数页兜底抓取最新点位和涨跌幅。"""
+    yahoo_symbol = symbol if symbol.endswith((".SS", ".SZ")) else f"{symbol}.SS"
+    try:
+        url = f"https://finance.yahoo.com/quote/{yahoo_symbol}/"
+        _agent_browser_cli("open", url)
+
+        match = None
+        for _ in range(3):
+            time.sleep(2)
+            snap_text = _agent_browser_cli("snapshot")
+            # Yahoo 页面在标题后显示：价格、涨跌额、涨跌幅。
+            match = re.search(
+                rf'heading ".*?\({re.escape(yahoo_symbol)}\)".*?'
+                r'StaticText "([\d,]+(?:\.\d+)?)".*?'
+                r'StaticText "([+-]?[\d,]+(?:\.\d+)?)".*?'
+                r'StaticText "\(([+-]?[\d.]+)%\)"',
+                snap_text,
+                re.DOTALL,
+            )
+            if match:
+                break
+
+        if not match:
+            logger.warning(f"Yahoo Finance 页面未找到 {yahoo_symbol} 最新点位")
+            return None
+
+        return {
+            "price": float(match.group(1).replace(",", "")),
+            "price_date": datetime.now().strftime("%Y-%m-%d"),
+            "currency": "CNY",
+            "growth_rate": float(match.group(3)) / 100,
+        }
+    except FileNotFoundError:
+        logger.warning("agent-browser 命令未找到，Yahoo Finance 抓取不可用")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.error(f"agent-browser Yahoo Finance 获取指数 {yahoo_symbol} 超时")
+        return None
+    except Exception as e:
+        logger.error(f"Yahoo Finance 获取指数 {yahoo_symbol} 失败: {e}")
         return None
     finally:
         try:
