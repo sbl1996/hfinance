@@ -1,7 +1,11 @@
 import os
+from pathlib import Path
 
 from app.services import market_fetcher
 from app.services.network_proxy_state import VPN_PROXY_URL
+
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def test_agent_browser_cli_passes_proxy_env_when_enabled(monkeypatch):
@@ -68,7 +72,7 @@ def test_fetch_cn_index_eastmoney_parses_after_hours_layout(monkeypatch):
     monkeypatch.setattr(
         market_fetcher,
         "_agent_browser_cli",
-        lambda command, *args: snapshot if command == "snapshot" else "",
+        lambda command, *args, **kwargs: snapshot if command == "snapshot" else "",
     )
 
     result = market_fetcher._fetch_cn_index_eastmoney("H30269")
@@ -78,21 +82,13 @@ def test_fetch_cn_index_eastmoney_parses_after_hours_layout(monkeypatch):
 
 
 def test_fetch_cn_index_yahoo_parses_quote_snapshot(monkeypatch):
-    snapshot = '''
-        - StaticText "Shanghai - Delayed Quote"
-        - StaticText "CNY"
-        - heading "CSI Dividend Low Volatility Ind (H30269.SS)" [level=1]
-        - StaticText "10,975.80"
-        - StaticText "+117.03"
-        - StaticText "(+1.08%)"
-        - StaticText "At close: 3:00:24 PM GMT+8"
-    '''
+    snapshot = (FIXTURES_DIR / "H30269.yahoo.snapshot").read_text()
 
     monkeypatch.setattr(market_fetcher.time, "sleep", lambda _: None)
     monkeypatch.setattr(
         market_fetcher,
         "_agent_browser_cli",
-        lambda command, *args: snapshot if command == "snapshot" else "",
+        lambda command, *args, **kwargs: snapshot if command == "snapshot" else "",
     )
 
     result = market_fetcher._fetch_cn_index_yahoo("H30269")
@@ -101,6 +97,23 @@ def test_fetch_cn_index_yahoo_parses_quote_snapshot(monkeypatch):
     assert result["price"] == 10975.8
     assert result["currency"] == "CNY"
     assert result["growth_rate"] == 0.0108
+
+
+def test_fetch_cn_index_yahoo_retries_empty_snapshot(monkeypatch):
+    snapshot = (FIXTURES_DIR / "H30269.yahoo.snapshot").read_text()
+    snapshots = iter(["(empty page)", "(empty page)", snapshot])
+
+    monkeypatch.setattr(market_fetcher.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        market_fetcher,
+        "_agent_browser_cli",
+        lambda command, *args, **kwargs: next(snapshots) if command == "snapshot" else "",
+    )
+
+    result = market_fetcher._fetch_cn_index_yahoo("H30269")
+
+    assert result is not None
+    assert result["price"] == 10975.8
 
 
 def test_fetch_us_stock_wraps_akshare_call_with_proxy_env(monkeypatch):

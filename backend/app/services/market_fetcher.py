@@ -32,6 +32,8 @@ _fund_daily_cache_df: pd.DataFrame | None = None
 _fund_daily_cache_expires_at: float = 0.0
 AGENT_BROWSER_CONNECT_RETRIES = 2
 AGENT_BROWSER_CONNECT_RETRY_SECONDS = 2
+YAHOO_SNAPSHOT_RETRIES = 6
+YAHOO_SNAPSHOT_RETRY_SECONDS = 2
 
 
 def _fetch_hk_stock_akshare(code: str) -> dict | None:
@@ -422,39 +424,48 @@ def _fetch_cn_index_eastmoney(symbol: str) -> dict | None:
             pass
 
 
+def _parse_cn_index_yahoo_snapshot(snapshot: str, yahoo_symbol: str) -> dict | None:
+    """从 Yahoo 指数页 snapshot 中提取报价。"""
+    match = re.search(
+        rf'heading "[^"]*\({re.escape(yahoo_symbol)}\)"[^\n]*.*?'
+        r'StaticText "([\d,]+(?:\.\d+)?)".*?'
+        r'StaticText "([+\-−]?[\d,]+(?:\.\d+)?)".*?'
+        r'StaticText "\(([+\-−]?[\d.]+)%\)"',
+        snapshot,
+        re.DOTALL,
+    )
+    if not match:
+        return None
+
+    return {
+        "price": float(match.group(1).replace(",", "")),
+        "price_date": datetime.now().strftime("%Y-%m-%d"),
+        "currency": "CNY",
+        "growth_rate": float(match.group(3).replace("−", "-")) / 100,
+    }
+
+
 def _fetch_cn_index_yahoo(symbol: str) -> dict | None:
     """通过 Yahoo Finance 指数页兜底抓取最新点位和涨跌幅。"""
     yahoo_symbol = symbol if symbol.endswith((".SS", ".SZ")) else f"{symbol}.SS"
     try:
         url = f"https://finance.yahoo.com/quote/{yahoo_symbol}/"
         _agent_browser_cli("open", url, source="YAHOO")
+        # open 只完成导航，报价由页面脚本异步填充；等待标题出现再读取 snapshot。
+        _agent_browser_cli("wait", "--text", yahoo_symbol, source="YAHOO")
 
-        match = None
-        for _ in range(3):
-            time.sleep(2)
+        result = None
+        for _ in range(YAHOO_SNAPSHOT_RETRIES):
+            time.sleep(YAHOO_SNAPSHOT_RETRY_SECONDS)
             snap_text = _agent_browser_cli("snapshot")
-            # Yahoo 页面在标题后显示：价格、涨跌额、涨跌幅。
-            match = re.search(
-                rf'heading ".*?\({re.escape(yahoo_symbol)}\)".*?'
-                r'StaticText "([\d,]+(?:\.\d+)?)".*?'
-                r'StaticText "([+-]?[\d,]+(?:\.\d+)?)".*?'
-                r'StaticText "\(([+-]?[\d.]+)%\)"',
-                snap_text,
-                re.DOTALL,
-            )
-            if match:
+            result = _parse_cn_index_yahoo_snapshot(snap_text, yahoo_symbol)
+            if result is not None:
                 break
 
-        if not match:
+        if result is None:
             logger.warning(f"Yahoo Finance 页面未找到 {yahoo_symbol} 最新点位")
             return None
-
-        return {
-            "price": float(match.group(1).replace(",", "")),
-            "price_date": datetime.now().strftime("%Y-%m-%d"),
-            "currency": "CNY",
-            "growth_rate": float(match.group(3)) / 100,
-        }
+        return result
     except FileNotFoundError:
         logger.warning("agent-browser 命令未找到，Yahoo Finance 抓取不可用")
         return None

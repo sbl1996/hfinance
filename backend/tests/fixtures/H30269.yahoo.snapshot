@@ -1,0 +1,10 @@
+                - StaticText "Shanghai - Delayed Quote"
+                - StaticText "CNY"
+                - heading "CSI Dividend Low Volatility Ind (H30269.SS)" [level=1, ref=e93]
+                  - StaticText "CSI Dividend Low Volatility Ind (H30269.SS)"
+                - button "Follow" [ref=e74]
+              - generic
+                - StaticText "10,975.80"
+                - StaticText "+117.03"
+                - StaticText "(+1.08%)"
+                - StaticText "At close: 3:00:24 PM GMT+8"
