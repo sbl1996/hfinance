@@ -27,3 +27,18 @@ export interface PriceHistoryResponse {
   history: PriceHistoryItem[]
   empty: boolean
 }
+
+export type HoldingWarningType = 'TAKE_PROFIT' | 'STOP_LOSS'
+
+export interface HoldingAlertSettings {
+  holding_id: number
+  enabled: boolean
+  take_profit_rate: number | null
+  stop_loss_rate: number | null
+  warning_active: boolean
+  warning_type: HoldingWarningType | null
+  warning_triggered_at: string | null
+  last_trigger_date: string | null
+  last_webhook_status: string | null
+  last_webhook_error: string | null
+}

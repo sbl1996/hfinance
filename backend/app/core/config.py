@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     APP_TIMEZONE: str = "Asia/Shanghai"
     FETCH_QUEUE_POLL_SECONDS: int = 5
 
+    # ---- 持仓预警 ----
+    FEISHU_WEBHOOK_URL: str = ""
+    ALERT_WEBHOOK_TIMEOUT_SECONDS: int = 10
+
     # ---- 行情抓取 ----
     MARKET_FETCH_TIMEOUT: int = 30  # 单次抓取超时秒数
 

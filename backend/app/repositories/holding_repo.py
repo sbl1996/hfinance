@@ -8,9 +8,15 @@ async def get_all() -> list[dict]:
     db = await get_db()
     cursor = await db.execute(
         """
-        SELECT h.*, hso.sort_order AS sort_order, hso.ignored AS ignored
+        SELECT h.*, hso.sort_order AS sort_order, hso.ignored AS ignored,
+               COALESCE(has.enabled, 0) AS alert_enabled,
+               has.take_profit_rate, has.stop_loss_rate,
+               COALESCE(has.warning_active, 0) AS warning_active,
+               has.warning_type, has.warning_triggered_at, has.last_trigger_date,
+               has.last_webhook_status, has.last_webhook_error
         FROM holdings h
         INNER JOIN holding_sort_orders hso ON hso.holding_id = h.id
+        LEFT JOIN holding_alert_settings has ON has.holding_id = h.id
         ORDER BY hso.sort_order ASC, h.id ASC
         """
     )
@@ -22,15 +28,30 @@ async def get_by_id(item_id: int) -> dict | None:
     db = await get_db()
     cursor = await db.execute(
         """
-        SELECT h.*, hso.sort_order AS sort_order, hso.ignored AS ignored
+        SELECT h.*, hso.sort_order AS sort_order, hso.ignored AS ignored,
+               COALESCE(has.enabled, 0) AS alert_enabled,
+               has.take_profit_rate, has.stop_loss_rate,
+               COALESCE(has.warning_active, 0) AS warning_active,
+               has.warning_type, has.warning_triggered_at, has.last_trigger_date,
+               has.last_webhook_status, has.last_webhook_error
         FROM holdings h
         INNER JOIN holding_sort_orders hso ON hso.holding_id = h.id
+        LEFT JOIN holding_alert_settings has ON has.holding_id = h.id
         WHERE h.id = ?
         """,
         (item_id,),
     )
     row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def get_by_code_and_market(code: str, market: str) -> list[dict]:
+    """获取同一行情标的对应的全部持仓（不同持仓的成本可能不同）。"""
+    return [
+        item
+        for item in await get_all()
+        if item["code"] == code and item["market"] == market
+    ]
 
 
 async def create(data: HoldingCreate) -> dict:

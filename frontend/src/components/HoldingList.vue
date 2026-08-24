@@ -3,7 +3,13 @@
     <div
       v-for="(h, index) in holdings"
       :key="h.id"
-      :class="['holding-item', { 'holding-item-sort-mode': sortMode }]"
+      :class="[
+        'holding-item',
+        {
+          'holding-item-sort-mode': sortMode,
+          'holding-item-warning': h.warning_active && !sortMode,
+        },
+      ]"
       @click="handleItemClick(h)"
       @touchstart.passive="startLongPress(h)"
       @touchend="cancelLongPress"
@@ -65,7 +71,7 @@
         <div class="holding-info-row">
           <span class="info-label">累计收益率</span>
           <span :class="['info-value', pnlColorClass(h.pnl_rate)]">
-            {{ h.pnl_rate !== null && h.pnl_rate !== undefined ? formatPercent(h.pnl_rate) : '--' }}
+            <span v-if="h.warning_active" class="warning-badge">[{{ warningLabel(h.warning_type) }}]</span>{{ h.pnl_rate !== null && h.pnl_rate !== undefined ? formatSignedPercent(h.pnl_rate) : '--' }}
           </span>
         </div>
         <div class="holding-info-row">
@@ -167,6 +173,15 @@ function marketLabel(market?: string | null) {
   }
   return '--'
 }
+
+function warningLabel(type?: string | null) {
+  return type === 'STOP_LOSS' ? '止损' : '止盈'
+}
+
+function formatSignedPercent(value: number) {
+  const formatted = formatPercent(value)
+  return value > 0 ? `+${formatted}` : formatted
+}
 </script>
 
 <style scoped>
@@ -182,6 +197,16 @@ function marketLabel(market?: string | null) {
 .holding-item-sort-mode {
   border: 1px solid #c9d8f5;
   box-shadow: inset 0 0 0 1px rgba(25, 137, 250, 0.08);
+}
+
+.holding-item-warning {
+  background: #fff7e6;
+  box-shadow: inset 4px 0 0 #ff976a;
+}
+
+.warning-badge {
+  color: #ed6a0c;
+  font-weight: 700;
 }
 
 .holding-header {

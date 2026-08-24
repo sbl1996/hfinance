@@ -79,6 +79,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         except JWTError:
             pass
 
+        request.state.role = role
+
         if role == "guest":
             cash_ratio, liab_ratio = get_weekly_ratios()
             request.state.cash_ratio = cash_ratio

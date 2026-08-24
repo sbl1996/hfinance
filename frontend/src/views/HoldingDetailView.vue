@@ -93,6 +93,92 @@
         </div>
       </div>
 
+      <!-- 卖出预警 -->
+      <div v-if="!authStore.isGuest || data.alert_enabled || data.warning_active" class="alert-card">
+        <div class="alert-header">
+          <div>
+            <div class="alert-title">卖出预警</div>
+            <div class="alert-subtitle">每个持仓每天最多触发一次</div>
+          </div>
+          <van-switch
+            v-if="!authStore.isGuest"
+            v-model="alertForm.enabled"
+            size="22px"
+          />
+          <span v-else class="alert-readonly-state">{{ data.alert_enabled ? '已启用' : '未启用' }}</span>
+        </div>
+
+        <template v-if="!authStore.isGuest">
+          <van-field
+            v-model="alertForm.takeProfitPercent"
+            type="number"
+            inputmode="decimal"
+            label="止盈收益率"
+            placeholder="例如 20"
+            right-icon="percentage"
+          />
+          <van-field
+            v-model="alertForm.stopLossPercent"
+            type="number"
+            inputmode="decimal"
+            label="止损收益率"
+            placeholder="例如 -10"
+            right-icon="percentage"
+          />
+        </template>
+
+        <div class="alert-status-row">
+          <span>当前状态</span>
+          <span :class="['alert-status', { 'alert-status-active': data.warning_active }]">
+            {{ alertStatusText }}
+          </span>
+        </div>
+        <div v-if="data.warning_triggered_at" class="alert-status-row">
+          <span>触发时间</span>
+          <span>{{ data.warning_triggered_at }}</span>
+        </div>
+        <div v-if="data.last_webhook_status" class="alert-status-row">
+          <span>飞书通知</span>
+          <span>{{ webhookStatusText }}</span>
+        </div>
+        <div v-if="data.last_webhook_status === 'FAILED' && data.last_webhook_error" class="alert-webhook-error">
+          {{ data.last_webhook_error }}
+        </div>
+
+        <div v-if="!authStore.isGuest" class="alert-actions">
+          <van-button
+            block
+            round
+            type="primary"
+            :loading="savingAlert"
+            @click="handleSaveAlert"
+          >
+            保存预警设置
+          </van-button>
+          <van-button
+            v-if="data.warning_active"
+            block
+            round
+            plain
+            type="warning"
+            :loading="acknowledgingAlert"
+            @click="handleAcknowledgeAlert"
+          >
+            我知道了，关闭本次警告
+          </van-button>
+          <van-button
+            block
+            round
+            plain
+            size="small"
+            :loading="resettingAlert"
+            @click="handleResetAlert"
+          >
+            调试：重置今日触发限制
+          </van-button>
+        </div>
+      </div>
+
       <!-- 操作按钮 -->
       <div class="action-bar">
         <van-button block round type="primary" @click="openEditForm">编辑持仓</van-button>
@@ -131,22 +217,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showConfirmDialog } from 'vant'
+import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { createChart, ColorType, LineStyle, AreaSeries, LineSeries } from 'lightweight-charts'
 import { useHoldingStore } from '@/stores/holding'
+import { useAuthStore } from '@/stores/auth'
 import { formatMoney, formatPercent, formatMonthDay, pnlColorClass } from '@/utils/format'
-import type { PriceHistoryResponse } from '@/types/holding'
+import type { HoldingAlertSettings, HoldingWarningType, PriceHistoryResponse } from '@/types/holding'
 import HoldingForm from '@/components/HoldingForm.vue'
 
 type HoldingDetailData = PriceHistoryResponse & {
   ignored: boolean
+  alert_enabled: boolean
+  take_profit_rate: number | null
+  stop_loss_rate: number | null
+  warning_active: boolean
+  warning_type: HoldingWarningType | null
+  warning_triggered_at: string | null
+  last_trigger_date: string | null
+  last_webhook_status: string | null
+  last_webhook_error: string | null
 }
 
 const route = useRoute()
 const router = useRouter()
 const holdingStore = useHoldingStore()
+const authStore = useAuthStore()
 
 const RANGES = [
   { key: '1M', label: '1月', days: 30 },
@@ -166,12 +263,33 @@ const showForm = ref(false)
 const editingHolding = ref<any>(null)
 const importingHistory = ref(false)
 const updatingIgnored = ref(false)
+const savingAlert = ref(false)
+const acknowledgingAlert = ref(false)
+const resettingAlert = ref(false)
 const showNativeUnitCost = ref(true)
+const alertForm = reactive({
+  enabled: false,
+  takeProfitPercent: '',
+  stopLossPercent: '',
+})
 
 let chart: ReturnType<typeof createChart> | null = null
 
 const holdingId = Number(route.params.id)
 const pageTitle = computed(() => data.value?.name ?? '持仓详情')
+const alertStatusText = computed(() => {
+  if (data.value?.warning_active) {
+    return data.value.warning_type === 'STOP_LOSS' ? '止损已触发' : '止盈已触发'
+  }
+  return data.value?.alert_enabled ? '监控中' : '未启用'
+})
+const webhookStatusText = computed(() => {
+  const status = data.value?.last_webhook_status
+  if (status === 'SUCCESS') return '发送成功'
+  if (status === 'FAILED') return '发送失败'
+  if (status === 'DISABLED') return '未配置 Webhook'
+  return '--'
+})
 
 function marketLabel(market?: string | null) {
   if (market === 'A_STOCK') return 'A股'
@@ -228,7 +346,7 @@ const displayedUnitCost = computed(() => {
   if (showNativeUnitCost.value && canToggleUnitCost.value) {
     return formattedCurrencyAmount(data.value?.unit_cost_native, nativeCostCurrency.value)
   }
-  return formatMoney(data.value?.unit_cost)
+  return formatMoney(data.value?.unit_cost ?? null)
 })
 
 function toggleUnitCostCurrency() {
@@ -276,7 +394,10 @@ async function fetchData() {
   loading.value = true
   error.value = false
   try {
-    const detail = await holdingStore.fetchPriceHistory(holdingId)
+    const [detail, alert] = await Promise.all([
+      holdingStore.fetchPriceHistory(holdingId),
+      holdingStore.fetchHoldingAlert(holdingId),
+    ])
     if (holdingStore.holdings.length === 0) {
       await holdingStore.fetchHoldings()
     }
@@ -284,12 +405,98 @@ async function fetchData() {
     data.value = {
       ...detail,
       ignored: holding?.ignored ?? false,
+      alert_enabled: alert.enabled,
+      take_profit_rate: alert.take_profit_rate,
+      stop_loss_rate: alert.stop_loss_rate,
+      warning_active: alert.warning_active,
+      warning_type: alert.warning_type,
+      warning_triggered_at: alert.warning_triggered_at,
+      last_trigger_date: alert.last_trigger_date,
+      last_webhook_status: alert.last_webhook_status,
+      last_webhook_error: alert.last_webhook_error,
     }
+    applyAlertForm(alert)
     showNativeUnitCost.value = true
   } catch {
     error.value = true
   } finally {
     loading.value = false
+  }
+}
+
+function percentInput(value: number | null) {
+  return value === null ? '' : Number((value * 100).toFixed(4)).toString()
+}
+
+function applyAlertForm(alert: HoldingAlertSettings) {
+  alertForm.enabled = alert.enabled
+  alertForm.takeProfitPercent = percentInput(alert.take_profit_rate)
+  alertForm.stopLossPercent = percentInput(alert.stop_loss_rate)
+}
+
+function parseOptionalPercent(value: string): number | null {
+  if (!value.trim()) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed / 100 : null
+}
+
+async function handleSaveAlert() {
+  const takeProfitRate = parseOptionalPercent(alertForm.takeProfitPercent)
+  const stopLossRate = parseOptionalPercent(alertForm.stopLossPercent)
+  if (alertForm.takeProfitPercent.trim() && takeProfitRate === null) {
+    showToast('请输入有效的止盈收益率')
+    return
+  }
+  if (alertForm.stopLossPercent.trim() && stopLossRate === null) {
+    showToast('请输入有效的止损收益率')
+    return
+  }
+  if (takeProfitRate !== null && takeProfitRate <= 0) {
+    showToast('止盈收益率必须大于 0')
+    return
+  }
+  if (stopLossRate !== null && stopLossRate >= 0) {
+    showToast('止损收益率必须小于 0')
+    return
+  }
+  if (alertForm.enabled && takeProfitRate === null && stopLossRate === null) {
+    showToast('启用预警时至少填写一条预警线')
+    return
+  }
+
+  savingAlert.value = true
+  try {
+    await holdingStore.updateHoldingAlert(holdingId, {
+      enabled: alertForm.enabled,
+      take_profit_rate: takeProfitRate,
+      stop_loss_rate: stopLossRate,
+    })
+    await fetchData()
+    showSuccessToast('预警设置已保存')
+  } finally {
+    savingAlert.value = false
+  }
+}
+
+async function handleAcknowledgeAlert() {
+  acknowledgingAlert.value = true
+  try {
+    await holdingStore.acknowledgeHoldingAlert(holdingId)
+    await fetchData()
+    showSuccessToast('本次警告已关闭')
+  } finally {
+    acknowledgingAlert.value = false
+  }
+}
+
+async function handleResetAlert() {
+  resettingAlert.value = true
+  try {
+    await holdingStore.resetHoldingAlert(holdingId)
+    await fetchData()
+    showSuccessToast('已重置，下次刷新可再次触发')
+  } finally {
+    resettingAlert.value = false
   }
 }
 
@@ -496,6 +703,66 @@ onUnmounted(() => {
   margin: 0 12px 12px;
   border-radius: 12px;
   padding: 16px;
+}
+
+.alert-card {
+  background: white;
+  margin: 0 12px 12px;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.alert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.alert-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.alert-subtitle,
+.alert-readonly-state {
+  margin-top: 2px;
+  color: #969799;
+  font-size: 12px;
+}
+
+.alert-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  color: #646566;
+  font-size: 13px;
+}
+
+.alert-status {
+  color: #969799;
+  font-weight: 600;
+}
+
+.alert-status-active {
+  color: #ed6a0c;
+}
+
+.alert-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.alert-webhook-error {
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #ee0a24;
+  background: #fff1f0;
+  font-size: 12px;
+  word-break: break-word;
 }
 
 .info-header {

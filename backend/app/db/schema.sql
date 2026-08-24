@@ -43,6 +43,23 @@ CREATE TABLE IF NOT EXISTS holding_sort_orders (
     FOREIGN KEY (holding_id) REFERENCES holdings(id) ON DELETE CASCADE
 );
 
+-- 持仓止盈止损预警设置（一条持仓一条配置）
+CREATE TABLE IF NOT EXISTS holding_alert_settings (
+    holding_id             INTEGER PRIMARY KEY,
+    enabled                INTEGER NOT NULL DEFAULT 0,
+    take_profit_rate       REAL,
+    stop_loss_rate         REAL,
+    warning_active         INTEGER NOT NULL DEFAULT 0,
+    warning_type           TEXT CHECK(warning_type IN ('TAKE_PROFIT', 'STOP_LOSS')),
+    warning_triggered_at   TEXT,
+    last_trigger_date      TEXT,
+    last_webhook_status    TEXT,
+    last_webhook_error     TEXT,
+    created_at             TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at             TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (holding_id) REFERENCES holdings(id) ON DELETE CASCADE
+);
+
 -- 行情缓存表
 CREATE TABLE IF NOT EXISTS price_cache (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,

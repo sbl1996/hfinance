@@ -61,6 +61,11 @@ class FetchTaskRunStatus(str, Enum):
     FAILED = "FAILED"
 
 
+class HoldingAlertType(str, Enum):
+    TAKE_PROFIT = "TAKE_PROFIT"
+    STOP_LOSS = "STOP_LOSS"
+
+
 class ProxyStateUpdate(BaseModel):
     vpn_enabled: bool = False
 
@@ -150,6 +155,25 @@ class HoldingIgnoreUpdate(BaseModel):
     ignored: bool
 
 
+class HoldingAlertUpdate(BaseModel):
+    enabled: bool = False
+    take_profit_rate: Optional[float] = None
+    stop_loss_rate: Optional[float] = None
+
+
+class HoldingAlertOut(BaseModel):
+    holding_id: int
+    enabled: bool = False
+    take_profit_rate: Optional[float] = None
+    stop_loss_rate: Optional[float] = None
+    warning_active: bool = False
+    warning_type: Optional[HoldingAlertType] = None
+    warning_triggered_at: Optional[str] = None
+    last_trigger_date: Optional[str] = None
+    last_webhook_status: Optional[str] = None
+    last_webhook_error: Optional[str] = None
+
+
 class HoldingOut(BaseModel):
     id: int
     code: str
@@ -160,6 +184,15 @@ class HoldingOut(BaseModel):
     cost_total_cny: float
     sort_order: int = 0
     ignored: bool = False
+    alert_enabled: bool = False
+    take_profit_rate: Optional[float] = None
+    stop_loss_rate: Optional[float] = None
+    warning_active: bool = False
+    warning_type: Optional[HoldingAlertType] = None
+    warning_triggered_at: Optional[str] = None
+    last_trigger_date: Optional[str] = None
+    last_webhook_status: Optional[str] = None
+    last_webhook_error: Optional[str] = None
     # 以下字段由 API 层动态计算
     latest_price: Optional[float] = None
     price_currency: Optional[CurrencyType] = None

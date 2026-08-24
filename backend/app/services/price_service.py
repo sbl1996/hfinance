@@ -16,6 +16,7 @@ from app.services.market_fetcher import (
     fetch_hk_stock,
     fetch_us_stock,
 )
+from app.services.holding_alert_service import evaluate_holding_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,25 @@ SOURCE_GROUP_CONCURRENCY: dict[str, int] = {
     "fund": 1,
     "us": 1,
 }
+
+
+async def _evaluate_holding_alerts_safely(
+    *,
+    code: str,
+    market: str,
+    price: float,
+    price_currency: str,
+) -> None:
+    """预警异常只记日志，不应让已成功的行情刷新被标记为失败。"""
+    try:
+        await evaluate_holding_alerts(
+            code=code,
+            market=market,
+            price=price,
+            price_currency=price_currency,
+        )
+    except Exception:
+        logger.exception("评估持仓预警失败: code=%s market=%s", code, market)
 
 
 async def _refresh_cny_fx_rates() -> None:
@@ -129,6 +149,12 @@ async def execute_price_refresh(
             currency=result["currency"],
             price_date=result["price_date"],
         )
+        await _evaluate_holding_alerts_safely(
+            code=code,
+            market=market,
+            price=result["price"],
+            price_currency=result["currency"],
+        )
         return {
             "code": code,
             "updated": True,
@@ -178,6 +204,12 @@ async def _refresh_target(target: dict, *, fund_force_refresh: bool = False) -> 
             price=result["price"],
             currency=result["currency"],
             price_date=result["price_date"],
+        )
+        await _evaluate_holding_alerts_safely(
+            code=code,
+            market=market,
+            price=result["price"],
+            price_currency=result["currency"],
         )
         return {
             "code": code,

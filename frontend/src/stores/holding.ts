@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import request from '@/utils/request'
 import { showSuccessToast } from 'vant'
-import type { PriceHistoryResponse } from '@/types/holding'
+import type { HoldingAlertSettings, PriceHistoryResponse } from '@/types/holding'
 
 export const useHoldingStore = defineStore('holding', () => {
   const holdings = ref<any[]>([])
@@ -94,6 +94,31 @@ export const useHoldingStore = defineStore('holding', () => {
     return data
   }
 
+  async function fetchHoldingAlert(id: number): Promise<HoldingAlertSettings> {
+    return await request.get(`/holdings/${id}/alert`)
+  }
+
+  async function updateHoldingAlert(
+    id: number,
+    data: { enabled: boolean; take_profit_rate: number | null; stop_loss_rate: number | null },
+  ): Promise<HoldingAlertSettings> {
+    const result: HoldingAlertSettings = await request.put(`/holdings/${id}/alert`, data)
+    await fetchHoldings()
+    return result
+  }
+
+  async function acknowledgeHoldingAlert(id: number): Promise<HoldingAlertSettings> {
+    const result: HoldingAlertSettings = await request.post(`/holdings/${id}/alert/acknowledge`)
+    await fetchHoldings()
+    return result
+  }
+
+  async function resetHoldingAlert(id: number): Promise<HoldingAlertSettings> {
+    const result: HoldingAlertSettings = await request.post(`/holdings/${id}/alert/reset`)
+    await fetchHoldings()
+    return result
+  }
+
   return {
     holdings,
     summary,
@@ -112,5 +137,9 @@ export const useHoldingStore = defineStore('holding', () => {
     invalidateFundNavCache,
     importFundHistory,
     fetchPriceHistory,
+    fetchHoldingAlert,
+    updateHoldingAlert,
+    acknowledgeHoldingAlert,
+    resetHoldingAlert,
   }
 })

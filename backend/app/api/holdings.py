@@ -1,13 +1,13 @@
 """持仓 API"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.models.schemas import (
     HoldingCreate, HoldingOut, HoldingUpdate, HoldingListOut,
     CurrencyType, MarketType, HoldingReorderRequest, HoldingIgnoreUpdate,
-    PriceHistoryResponse, PriceHistoryItem,
+    PriceHistoryResponse, PriceHistoryItem, HoldingAlertUpdate, HoldingAlertOut,
 )
-from app.repositories import holding_repo, price_repo
+from app.repositories import holding_alert_repo, holding_repo, price_repo
 from app.services.currency_service import (
     ensure_fund_currency_consistency,
     get_cny_rate_for_date,
@@ -137,6 +137,46 @@ async def update_holding_ignored(item_id: int, data: HoldingIgnoreUpdate):
     if not item:
         raise HTTPException(status_code=404, detail="持仓不存在")
     return await _enrich_holding(item)
+
+
+def _validate_alert_settings(data: HoldingAlertUpdate) -> None:
+    if data.take_profit_rate is not None and data.take_profit_rate <= 0:
+        raise HTTPException(status_code=400, detail="止盈收益率必须大于 0")
+    if data.stop_loss_rate is not None and data.stop_loss_rate >= 0:
+        raise HTTPException(status_code=400, detail="止损收益率必须小于 0")
+    if data.enabled and data.take_profit_rate is None and data.stop_loss_rate is None:
+        raise HTTPException(status_code=400, detail="启用预警时至少需要填写一条预警线")
+
+
+@router.get("/{item_id}/alert", response_model=HoldingAlertOut)
+async def get_holding_alert(item_id: int):
+    if not await holding_repo.get_by_id(item_id):
+        raise HTTPException(status_code=404, detail="持仓不存在")
+    return await holding_alert_repo.get_by_holding_id(item_id)
+
+
+@router.put("/{item_id}/alert", response_model=HoldingAlertOut)
+async def update_holding_alert(item_id: int, data: HoldingAlertUpdate):
+    if not await holding_repo.get_by_id(item_id):
+        raise HTTPException(status_code=404, detail="持仓不存在")
+    _validate_alert_settings(data)
+    return await holding_alert_repo.upsert(item_id, data)
+
+
+@router.post("/{item_id}/alert/acknowledge", response_model=HoldingAlertOut)
+async def acknowledge_holding_alert(item_id: int):
+    if not await holding_repo.get_by_id(item_id):
+        raise HTTPException(status_code=404, detail="持仓不存在")
+    return await holding_alert_repo.acknowledge(item_id)
+
+
+@router.post("/{item_id}/alert/reset", response_model=HoldingAlertOut)
+async def reset_holding_alert(item_id: int, request: Request):
+    if getattr(request.state, "role", None) != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可以重置预警状态")
+    if not await holding_repo.get_by_id(item_id):
+        raise HTTPException(status_code=404, detail="持仓不存在")
+    return await holding_alert_repo.reset(item_id)
 
 
 @router.delete("/{item_id}")
