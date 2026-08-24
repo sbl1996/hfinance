@@ -1130,13 +1130,7 @@ onUnmounted(() => {
 }
 
 .primary-action-bar {
-  position: sticky;
-  bottom: calc(56px + env(safe-area-inset-bottom));
-  z-index: 5;
-  padding: 10px 14px;
-  border-top: 1px solid rgba(235, 237, 240, 0.9);
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(12px);
+  padding: 0 12px 12px;
 }
 
 .alert-editor {
